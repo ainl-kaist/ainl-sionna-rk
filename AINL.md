@@ -17,6 +17,9 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `scripts/channel_sweep.sh` — added
 - `scripts/hooks/pre-commit` — added
 - `scripts/start_ue.sh` — added
+- `scripts/start_ues.sh` — added
+- `scripts/stop_ue.sh` — added
+- `scripts/stop_ues.sh` — added
 - `scripts/update-ainl.sh` — added
 - `scripts/watch_MCS.sh` — added
 <!-- AUTO:files end -->
@@ -42,6 +45,28 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
   attach (`oaitun_ue1`). Useful because the rfsim UE in this build aborts
   intermittently (`buffer overflow detected`) and needs to be brought back up.
   - Usage: `./scripts/start_ue.sh [rfsim|b200]`
+
+- **[scripts/stop_ue.sh](scripts/stop_ue.sh)** — Counterpart to `start_ue.sh`:
+  `docker compose stop` the primary UE only (core + gNB stay up). Uses `stop`
+  (not `down`) so it can be restarted; the `restart: unless-stopped` policy
+  honours a manual stop, so the UE won't auto-restart until `start_ue.sh`.
+  - Usage: `./scripts/stop_ue.sh [rfsim|b200]`
+
+- **[scripts/start_ues.sh](scripts/start_ues.sh)** — Attach **multiple UEs** to
+  the same gNB at once (rfsim). Starts EXTRA UEs (`oai-nr-ue2`, `oai-nr-ue3`, …)
+  alongside the primary `oai-nr-ue`, each with its own container name, public_net
+  IP (`.151`, `.152`, …), provisioned IMSI (the spares already in
+  `oai_db.sql`: `…001101`, `…016069`), and CPU thread-pool (offset off the
+  primary's cores). The OAI rfsim server accepts up to 250 clients (broadcasts DL
+  to each, sums UL), so multiple full-stack UEs work against one gNB. Per-UE
+  configs are rendered from `nrue.uicc.conf` into `config/common/generated/`
+  (only the IMSI differs; key/opc are shared). Capped at the number of spare
+  IMSIs (2); add subscribers to `oai_db.sql` to go higher.
+  - Usage: `./scripts/start_ues.sh [-n <count>] [rfsim]`  (default 2 extra UEs)
+
+- **[scripts/stop_ues.sh](scripts/stop_ues.sh)** — Remove the extra UEs started
+  by `start_ues.sh` (every `oai-nr-ue<N>` for N≥2); leaves the primary UE alone.
+  - Usage: `./scripts/stop_ues.sh`
 
 - **[scripts/watch_MCS.sh](scripts/watch_MCS.sh)** — Follow the gNB log and show
   the link-quality metrics that actually respond to channel changes (OAI prints
@@ -77,6 +102,14 @@ after regenerating configs:
 
   Note: this is self-healing, not a fix — a sweep can still lose its remaining
   steps if a softmodem dies mid-run. A real fix needs an OAI image rebuild.
+
+- **`SYS_PTRACE` on UE/gNB** — also in `config/common/docker-compose.yaml`,
+  `SYS_PTRACE` was added to the `oai-nr-ue` and `oai-gnb` `cap_add` lists so
+  `gdb` can attach inside the (unprivileged) containers to debug the
+  `buffer overflow detected` abort. The prebuilt binaries ship with full debug
+  symbols and OAI deliberately leaves `SIGABRT`/`SIGSEGV` at default (the handler
+  in `softmodem-common.c` is `#if 0`-ed, to allow core dumps), so a `gdb`
+  backtrace gives file:line directly — no ASan rebuild needed for a first trace.
 
 ## Change log
 

@@ -85,6 +85,7 @@ above is auto-generated. For the raw history: `git log --oneline fa405b8..ainl-d
 
 | Commit | Summary |
 |--------|---------|
+| `83c89c7` | channel_sweep: state-file handoff + restore channel on interrupt |
 | `43cf196` | watch_MCS: select metrics by direction (dl/ul/ue) |
 | `7fbefad` | Add scripts/watch_MCS.sh — live MCS/SNR/BLER monitor |
 | `ab9f7c2` | channel_sweep: shorten per-step time so ploss changes ~2x more often |

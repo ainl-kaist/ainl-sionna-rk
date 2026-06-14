@@ -63,6 +63,9 @@ DURATION=3                    # iperf3 measure seconds per step (short = ploss c
 IPERF_SERVER="192.168.72.135"
 UE_IP=""                      # empty => auto-detect from oaitun_ue1
 TELNET_PORT=9090
+STATE_FILE="/tmp/oai_chan_sweep.state"   # handoff for av-channel-sim/scripts/watch_snr.sh
+                                         # (OAI telnet is single-client, so a monitor can't poll
+                                         #  it while this sweep holds the connection)
 
 # ---- parse args --------------------------------------------------------------
 while getopts "p:v:d:m:t:s:u:h" opt; do
@@ -140,11 +143,24 @@ s.close()
 TELNET_PID=$TELNET_PID
 
 cleanup() {
-    # Close the coprocess stdin so the telnet connection ends cleanly.
-    { exec {TELNET[1]}>&-; } 2>/dev/null || true
+    # Restore the channel to the best swept value (or first if none) so the link recovers — runs on
+    # normal exit AND on Ctrl-C (see INT/TERM trap below), so an interrupted sweep won't leave the
+    # channel at a link-killing value and crash the UE. Write straight to the coprocess fd.
+    if [[ -n "${TELNET[1]:-}" ]]; then
+        local rv
+        if [[ -n "${best_val:-}" ]]; then rv="$best_val"; else rv="$(echo "${VLIST[0]:-}" | xargs)"; fi
+        if [[ -n "$rv" ]]; then
+            log "Restoring $PARAM = $rv to keep the link healthy."
+            echo "channelmod modify $MODEL_IDX $PARAM $rv" >&"${TELNET[1]}" 2>/dev/null || true
+            sleep 1
+        fi
+        { exec {TELNET[1]}>&-; } 2>/dev/null || true   # close coprocess stdin
+    fi
+    rm -f "$STATE_FILE" 2>/dev/null || true
     wait "$TELNET_PID" 2>/dev/null || true
 }
 trap cleanup EXIT
+trap 'exit 130' INT TERM   # Ctrl-C/kill -> normal exit -> EXIT trap runs cleanup (restore)
 
 # Make sure the connection actually came up.
 sleep 1
@@ -182,6 +198,7 @@ for val in "${VLIST[@]}"; do
     val="$(echo "$val" | xargs)"   # trim whitespace
     log "Setting $PARAM = $val ..."
     send_chanmod "channelmod modify $MODEL_IDX $PARAM $val"
+    echo "model=$MODEL_IDX param=$PARAM value=$val" > "$STATE_FILE"   # handoff for watch_snr.sh
     sleep 1   # brief settle so the channel + gNB link adaptation (MCS) catch up
 
     # -O 1: omit the first 1 s so TCP slow-start doesn't drag the reported
@@ -218,16 +235,5 @@ for i in "${!RES_VAL[@]}"; do
 done
 echo "================================================="
 echo
-# Restore the channel to the best-performing swept value so the link recovers.
-# Leaving it at a link-killing value (deep fade, or an over-amplified/clipping
-# gain) makes the UE thrash on RRC re-establishment and can destabilise the
-# softmodem. Fall back to the first value if every step failed.
-if [[ -n "$best_val" ]]; then
-    reset_val="$best_val"
-    log "Restoring $PARAM = $reset_val (best link, ${best_tput} Mbps) to keep it healthy."
-else
-    reset_val="$(echo "${VLIST[0]}" | xargs)"
-    warn "All steps failed; restoring $PARAM = $reset_val (first value)."
-fi
-send_chanmod "channelmod modify $MODEL_IDX $PARAM $reset_val"
-sleep 1
+# Channel restore is handled by cleanup() on exit (best swept value, or first if all failed),
+# so it runs on normal completion AND on Ctrl-C. best_val/best_tput were tracked in the loop.

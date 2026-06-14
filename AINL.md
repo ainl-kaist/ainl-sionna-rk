@@ -7,9 +7,18 @@ This file is **fork-only** and is intentionally kept separate from the upstream
 with it. Anything listed here is added/changed by us; upstream files are otherwise
 left untouched.
 
-> Regenerate the file list any time with:
-> `git diff --stat fa405b8..ainl-dev`  (changed files)
-> `git log --oneline fa405b8..ainl-dev`  (our commits)
+## Changed files
+
+The list below is **auto-generated** by `scripts/update-ainl.sh` (run from the
+`pre-commit` git hook), comparing the working state to the NVlabs base `fa405b8`.
+Do not edit it by hand — anything between the AUTO markers is overwritten.
+
+<!-- AUTO:files start -->
+- `scripts/channel_sweep.sh` — added
+- `scripts/hooks/pre-commit` — added
+- `scripts/start_ue.sh` — added
+- `scripts/update-ainl.sh` — added
+<!-- AUTO:files end -->
 
 ## Added tools
 
@@ -33,7 +42,15 @@ left untouched.
   intermittently (`buffer overflow detected`) and needs to be brought back up.
   - Usage: `./scripts/start_ue.sh [rfsim|b200]`
 
+- **[scripts/update-ainl.sh](scripts/update-ainl.sh)** — Regenerate the
+  "Changed files" region above from git. Run automatically by the `pre-commit`
+  hook; can also be run by hand. After a fresh clone, install the hook once:
+  `cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
+
 ## Change log
+
+This table is curated by hand (kept current as lab work lands); the file list
+above is auto-generated. For the raw history: `git log --oneline fa405b8..ainl-dev`.
 
 | Commit | Summary |
 |--------|---------|

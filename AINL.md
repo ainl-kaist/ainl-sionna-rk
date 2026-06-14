@@ -18,6 +18,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `scripts/hooks/pre-commit` — added
 - `scripts/start_ue.sh` — added
 - `scripts/update-ainl.sh` — added
+- `scripts/watch_MCS.sh` — added
 <!-- AUTO:files end -->
 
 ## Added tools
@@ -41,6 +42,15 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
   attach (`oaitun_ue1`). Useful because the rfsim UE in this build aborts
   intermittently (`buffer overflow detected`) and needs to be brought back up.
   - Usage: `./scripts/start_ue.sh [rfsim|b200]`
+
+- **[scripts/watch_MCS.sh](scripts/watch_MCS.sh)** — Follow a container log and
+  show the link-quality metrics that actually respond to channel changes (OAI
+  prints no steady "SNR dB" stream): gNB per-UE **DL MCS/BLER** and **UL
+  MCS/SNR/BLER**, or the UE's **harq / code rate / bit-symbol**. Each line is
+  prefixed with the current channel value read from `channel_sweep.sh`'s state
+  file, so you can line up `ploss=N` against the link response. Pairs with
+  `channel_sweep.sh`; MCS only moves while traffic flows.
+  - Usage: `./scripts/watch_MCS.sh [oai-gnb|oai-nr-ue]`
 
 - **[scripts/update-ainl.sh](scripts/update-ainl.sh)** — Regenerate the
   "Changed files" region above from git. Run automatically by the `pre-commit`

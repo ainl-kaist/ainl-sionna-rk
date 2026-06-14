@@ -64,6 +64,7 @@ above is auto-generated. For the raw history: `git log --oneline fa405b8..ainl-d
 
 | Commit | Summary |
 |--------|---------|
+| `43cf196` | watch_MCS: select metrics by direction (dl/ul/ue) |
 | `7fbefad` | Add scripts/watch_MCS.sh — live MCS/SNR/BLER monitor |
 | `ab9f7c2` | channel_sweep: shorten per-step time so ploss changes ~2x more often |
 | `395658a` | channel_sweep: realistic path-loss sweep (ploss as gain) + robustness |

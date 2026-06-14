@@ -43,14 +43,14 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
   intermittently (`buffer overflow detected`) and needs to be brought back up.
   - Usage: `./scripts/start_ue.sh [rfsim|b200]`
 
-- **[scripts/watch_MCS.sh](scripts/watch_MCS.sh)** — Follow a container log and
-  show the link-quality metrics that actually respond to channel changes (OAI
-  prints no steady "SNR dB" stream): gNB per-UE **DL MCS/BLER** and **UL
-  MCS/SNR/BLER**, or the UE's **harq / code rate / bit-symbol**. Each line is
-  prefixed with the current channel value read from `channel_sweep.sh`'s state
-  file, so you can line up `ploss=N` against the link response. Pairs with
-  `channel_sweep.sh`; MCS only moves while traffic flows.
-  - Usage: `./scripts/watch_MCS.sh [oai-gnb|oai-nr-ue]`
+- **[scripts/watch_MCS.sh](scripts/watch_MCS.sh)** — Follow the gNB log and show
+  the link-quality metrics that actually respond to channel changes (OAI prints
+  no steady "SNR dB" stream): per-UE **DL MCS/BLER** and **UL MCS/SNR/BLER**.
+  Each line is prefixed with the current channel value read from
+  `channel_sweep.sh`'s state file, so you can line up `ploss=N` against the link
+  response. The `ue` mode instead reads the UE log (harq / code rate /
+  bit-symbol). Pairs with `channel_sweep.sh`; MCS only moves while traffic flows.
+  - Usage: `./scripts/watch_MCS.sh [dl|ul|ue]`  (no arg = both directions)
 
 - **[scripts/update-ainl.sh](scripts/update-ainl.sh)** — Regenerate the
   "Changed files" region above from git. Run automatically by the `pre-commit`

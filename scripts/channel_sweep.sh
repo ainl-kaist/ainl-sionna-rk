@@ -27,7 +27,7 @@
 #   -v <list>      comma-separated values to sweep       [10,5,0,-5,-10]
 #   -d <dir>       traffic direction: dl | ul            [dl]
 #   -m <index>     channel model index                   [auto: dl=0, ul=1]
-#   -t <seconds>   iperf3 duration per step              [8]
+#   -t <seconds>   iperf3 duration per step              [3]
 #   -s <ip>        iperf3 server (traffic generator)     [192.168.72.135]
 #   -u <ip>        UE tunnel IP (auto-detected if unset) [auto]
 #
@@ -59,7 +59,7 @@ PARAM="ploss"                 # signal gain in dB (10^(ploss/20)); lower value =
 VALUES="10,5,0,-5,-10"        # start at the safe peak (+10) and fade the link down
 DIRECTION="dl"
 MODEL_IDX=""                   # empty => auto-select per direction (dl=0, ul=1)
-DURATION=8
+DURATION=3                    # iperf3 measure seconds per step (short = ploss changes more often)
 IPERF_SERVER="192.168.72.135"
 UE_IP=""                      # empty => auto-detect from oaitun_ue1
 TELNET_PORT=9090
@@ -182,12 +182,12 @@ for val in "${VLIST[@]}"; do
     val="$(echo "$val" | xargs)"   # trim whitespace
     log "Setting $PARAM = $val ..."
     send_chanmod "channelmod modify $MODEL_IDX $PARAM $val"
-    sleep 2   # let the channel + gNB link adaptation (MCS) settle before measuring
+    sleep 1   # brief settle so the channel + gNB link adaptation (MCS) catch up
 
-    # -O 2: omit the first 2 s so TCP slow-start / MCS ramp-up don't drag the
-    # reported steady-state throughput down (matters most for the first step).
+    # -O 1: omit the first 1 s so TCP slow-start doesn't drag the reported
+    # steady-state throughput down (the warm-up burst above already ramped MCS).
     tput=$(docker exec oai-nr-ue iperf3 -B "$UE_IP" -c "$IPERF_SERVER" $IPERF_FLAGS \
-            -O 2 -t "$DURATION" -J 2>/dev/null | python3 -c "
+            -O 1 -t "$DURATION" -J 2>/dev/null | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)

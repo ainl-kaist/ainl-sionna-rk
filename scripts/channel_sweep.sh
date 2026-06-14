@@ -24,7 +24,7 @@
 #
 # Options (all optional; defaults in []):
 #   -p <param>     channelmod parameter to sweep        [ploss]
-#   -v <list>      comma-separated values to sweep       [10,20,30,40]
+#   -v <list>      comma-separated values to sweep       [10,5,0,-5,-10]
 #   -d <dir>       traffic direction: dl | ul            [dl]
 #   -m <index>     channel model index                   [auto: dl=0, ul=1]
 #   -t <seconds>   iperf3 duration per step              [8]
@@ -33,20 +33,30 @@
 #
 # Examples:
 #   ./scripts/channel_sweep.sh                                   # default DL path-loss sweep (near->far)
-#   ./scripts/channel_sweep.sh -d ul -v 10,20,30,40            # uplink path-loss sweep
-#   ./scripts/channel_sweep.sh -p noise_power_dB -v -20,-10,0   # noise-floor sweep (less physical)
+#   ./scripts/channel_sweep.sh -d ul -v 0,-5,-10,-15            # uplink path-loss sweep
+#   ./scripts/channel_sweep.sh -p noise_power_dB -v -20,-10,0   # noise-floor sweep (alternative)
 #
-# Note on realism: path loss (ploss, dB) models distance / shadowing / blockage --
-# the received signal weakens as the UE moves away, which is what really varies in
-# the field. Sweeping noise_power_dB instead pins the signal and moves the thermal
-# noise floor, which is not physically how a link degrades; keep it for SNR probing.
+# Note on realism and the SIGN of ploss:
+#   In the OAI rfsimulator the channel applies the received sample as
+#       out = tx_sample * 10^(ploss/20) + noise ,   noise ~ 10^(noise_power_dB/10)
+#   (see radio/rfsimulator/apply_channelmod.c). So "ploss" is really a GAIN:
+#     * ploss < 0  -> attenuates the signal  -> lower SNR  (models distance/shadowing) <-- use this
+#     * ploss = 0  -> baseline link
+#     * ploss > 0  -> AMPLIFIES the signal; large values clip the int16 samples and
+#                     destroy throughput as a numerical artifact, NOT as real path loss.
+#   Approx in-sim SNR:  SNR_dB ~= ploss - 2*noise_power_dB (+ a constant TX-level offset).
+#   Measured DL throughput vs ploss peaks around +10 dB (best link) and falls off both
+#   ways: above ~+20 dB the samples clip (artifact, link breaks); below it the SNR fades
+#   realistically until the link drops (~ -15 dB). The default therefore STARTS at the
+#   safe peak (+10) and sweeps DOWN to -10, modelling a UE moving away from the cell.
+#   Don't start a sweep above ~+10 dB: clipping there can break the link for all steps.
 #
 
 set -euo pipefail
 
 # ---- defaults ----------------------------------------------------------------
-PARAM="ploss"                 # path loss in dB (distance/shadowing); higher = farther
-VALUES="10,20,30,40"          # additional path loss in dB (0 omitted: never physical)
+PARAM="ploss"                 # signal gain in dB (10^(ploss/20)); lower value = weaker = farther
+VALUES="10,5,0,-5,-10"        # start at the safe peak (+10) and fade the link down
 DIRECTION="dl"
 MODEL_IDX=""                   # empty => auto-select per direction (dl=0, ul=1)
 DURATION=8
@@ -163,6 +173,11 @@ log "Warm-up transfer (ramping link adaptation, result discarded) ..."
 docker exec oai-nr-ue iperf3 -B "$UE_IP" -c "$IPERF_SERVER" $IPERF_FLAGS \
     -t 5 -J >/dev/null 2>&1 || true
 
+# Track the value that yields the best throughput, to restore a healthy link at
+# the end (the sweep order is not necessarily best-to-worst).
+best_val=""
+best_tput=-1
+
 for val in "${VLIST[@]}"; do
     val="$(echo "$val" | xargs)"   # trim whitespace
     log "Setting $PARAM = $val ..."
@@ -184,6 +199,12 @@ except Exception:
     log "  -> ${tput} Mbps"
     RES_VAL+=("$val")
     RES_TPUT+=("$tput")
+
+    # remember the best-performing value (numeric results only)
+    if [[ "$tput" != "ERR" ]] && awk "BEGIN{exit !($tput > $best_tput)}"; then
+        best_tput="$tput"
+        best_val="$val"
+    fi
 done
 
 # ---- results table -----------------------------------------------------------
@@ -197,11 +218,16 @@ for i in "${!RES_VAL[@]}"; do
 done
 echo "================================================="
 echo
-# Restore the channel to the first (mildest) swept value so the link recovers.
-# Leaving it at a link-killing value (e.g. very high path loss) makes the UE
-# thrash on RRC re-establishment, which can destabilise the softmodem.
-reset_val="${VLIST[0]}"
-reset_val="$(echo "$reset_val" | xargs)"
-log "Restoring $PARAM = $reset_val (first swept value) to keep the link healthy."
+# Restore the channel to the best-performing swept value so the link recovers.
+# Leaving it at a link-killing value (deep fade, or an over-amplified/clipping
+# gain) makes the UE thrash on RRC re-establishment and can destabilise the
+# softmodem. Fall back to the first value if every step failed.
+if [[ -n "$best_val" ]]; then
+    reset_val="$best_val"
+    log "Restoring $PARAM = $reset_val (best link, ${best_tput} Mbps) to keep it healthy."
+else
+    reset_val="$(echo "${VLIST[0]}" | xargs)"
+    warn "All steps failed; restoring $PARAM = $reset_val (first value)."
+fi
 send_chanmod "channelmod modify $MODEL_IDX $PARAM $reset_val"
 sleep 1

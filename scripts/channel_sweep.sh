@@ -189,7 +189,8 @@ done
 # ---- results table -----------------------------------------------------------
 echo
 echo "==================== RESULTS ===================="
-printf "  %-18s | %-15s\n" "$PARAM" "DL/UL Mbps"
+# A run measures one direction only (-d), so label the column accordingly.
+printf "  %-18s | %-15s\n" "$PARAM" "$(echo "$DIRECTION" | tr '[:lower:]' '[:upper:]') Mbps"
 printf "  %-18s-+-%-15s\n" "------------------" "---------------"
 for i in "${!RES_VAL[@]}"; do
     printf "  %-18s | %-15s\n" "${RES_VAL[$i]}" "${RES_TPUT[$i]}"

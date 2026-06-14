@@ -57,6 +57,27 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
   hook; can also be run by hand. After a fresh clone, install the hook once:
   `cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
 
+## Local environment tweaks (not tracked)
+
+These live under `config/`, which is **local and untracked** (the repo ignores
+`.env`; the dir is generated/per-machine). Re-apply them after a fresh clone or
+after regenerating configs:
+
+- **UE/gNB auto-restart** — in `config/common/docker-compose.yaml`, add
+  `restart: unless-stopped` to both the `oai-gnb` and `oai-nr-ue` services. The
+  rfsim softmodems abort intermittently (`buffer overflow detected`) on
+  channelmod activity; this makes them self-heal (docker auto-restarts and the
+  UE re-attaches within a few seconds) instead of staying dead and needing a
+  manual `./scripts/start_ue.sh`. To apply to already-running containers without
+  recreating them:
+
+  ```bash
+  docker update --restart unless-stopped oai-gnb oai-nr-ue
+  ```
+
+  Note: this is self-healing, not a fix — a sweep can still lose its remaining
+  steps if a softmodem dies mid-run. A real fix needs an OAI image rebuild.
+
 ## Change log
 
 This table is curated by hand (kept current as lab work lands); the file list

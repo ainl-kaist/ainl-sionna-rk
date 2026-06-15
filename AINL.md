@@ -14,6 +14,21 @@ The list below is **auto-generated** by `scripts/update-ainl.sh` (run from the
 Do not edit it by hand — anything between the AUTO markers is overwritten.
 
 <!-- AUTO:files start -->
+- `.gitignore` — modified
+- `config/b200/.env` — added
+- `config/common/docker-compose.override.yaml` — added
+- `config/common/docker-compose.yaml` — added
+- `config/common/flexric.conf` — added
+- `config/common/gnb.sa.band78.106prbs.conf` — added
+- `config/common/gnb.sa.band78.24prbs.conf` — added
+- `config/common/gnb.sa.band78.51prbs.conf` — added
+- `config/common/mini_nonrf_config.yaml` — added
+- `config/common/mysql-healthcheck.sh` — added
+- `config/common/nrue.uicc.conf` — added
+- `config/common/oai_db.sql` — added
+- `config/common/sys_config.yaml` — added
+- `config/rfsim/.env` — added
+- `config/testing/.env` — added
 - `scripts/channel_sweep.sh` — added
 - `scripts/hooks/pre-commit` — added
 - `scripts/start_ue.sh` — added
@@ -82,14 +97,16 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
   hook; can also be run by hand. After a fresh clone, install the hook once:
   `cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
 
-## Local environment tweaks (not tracked)
+## Environment tweaks (in `config/`)
 
-These live under `config/`, which is **local and untracked** (the repo ignores
-`.env`; the dir is generated/per-machine). Re-apply them after a fresh clone or
-after regenerating configs:
+These live under `config/` (now tracked). The only thing excluded is the
+transient `config/common/generated/` (per-UE configs rendered by
+`start_ues.sh`), which is git-ignored. To apply the tweaks below to
+already-running containers without recreating them, use the `docker update` /
+`docker compose up` commands noted:
 
-- **UE/gNB auto-restart** — in `config/common/docker-compose.yaml`, add
-  `restart: unless-stopped` to both the `oai-gnb` and `oai-nr-ue` services. The
+- **UE/gNB auto-restart** — in `config/common/docker-compose.yaml`,
+  `restart: unless-stopped` on both the `oai-gnb` and `oai-nr-ue` services. The
   rfsim softmodems abort intermittently (`buffer overflow detected`) on
   channelmod activity; this makes them self-heal (docker auto-restarts and the
   UE re-attaches within a few seconds) instead of staying dead and needing a

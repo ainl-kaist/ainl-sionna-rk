@@ -31,6 +31,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/testing/.env` — added
 - `scripts/channel_sweep.sh` — added
 - `scripts/hooks/pre-commit` — added
+- `scripts/restart_ue.sh` — added
 - `scripts/start_ue.sh` — added
 - `scripts/start_ues.sh` — added
 - `scripts/stop_ue.sh` — added
@@ -67,6 +68,12 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
   honours a manual stop, so the UE won't auto-restart until `start_ue.sh`.
   - Usage: `./scripts/stop_ue.sh [rfsim|b200]`
 
+- **[scripts/restart_ue.sh](scripts/restart_ue.sh)** — Thin wrapper that runs
+  `stop_ue.sh` then `start_ue.sh` for the primary UE only (core + gNB stay up),
+  for a clean detach/reattach without restarting the whole system. Useful after
+  the rfsim UE aborts or after a channel-model change that needs a fresh attach.
+  - Usage: `./scripts/restart_ue.sh [rfsim|b200]`
+
 - **[scripts/start_ues.sh](scripts/start_ues.sh)** — Attach **multiple UEs** to
   the same gNB at once (rfsim). Starts EXTRA UEs (`oai-nr-ue2`, `oai-nr-ue3`, …)
   alongside the primary `oai-nr-ue`, each with its own container name, public_net
@@ -86,10 +93,15 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - **[scripts/watch_MCS.sh](scripts/watch_MCS.sh)** — Follow the gNB log and show
   the link-quality metrics that actually respond to channel changes (OAI prints
   no steady "SNR dB" stream): per-UE **DL MCS/BLER** and **UL MCS/SNR/BLER**.
-  Each line is prefixed with the current channel value read from
-  `channel_sweep.sh`'s state file, so you can line up `ploss=N` against the link
-  response. The `ue` mode instead reads the UE log (harq / code rate /
-  bit-symbol). Pairs with `channel_sweep.sh`; MCS only moves while traffic flows.
+  Each line is prefixed with **(1)** the OAI log timestamp (the per-UE stat lines
+  carry no timestamp of their own, so it's tracked from the block header line)
+  and **(2)** the current channel value: `ploss=N` from `channel_sweep.sh`'s
+  state file while a sweep runs, else the live path-loss read straight from the
+  rfsimulator telnet (a background poller that backs off whenever a sweep owns
+  the single-client telnet). So you can line up `ploss=N` against the link
+  response even with no sweep running. The `ue` mode instead reads the UE log
+  (harq / code rate / bit-symbol). Pairs with `channel_sweep.sh`; MCS only moves
+  while traffic flows.
   - Usage: `./scripts/watch_MCS.sh [dl|ul|ue]`  (no arg = both directions)
 
 - **[scripts/update-ainl.sh](scripts/update-ainl.sh)** — Regenerate the

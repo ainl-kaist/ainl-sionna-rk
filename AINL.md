@@ -147,6 +147,9 @@ above is auto-generated. For the raw history: `git log --oneline fa405b8..ainl-d
 
 | Commit | Summary |
 |--------|---------|
+| `7687a27` | restart_ue.sh; watch_MCS: log-timestamp prefix + live ploss fallback |
+| `2a59c8b` | Track config/ (lab configs, compose, subscriber DB) |
+| `da0f698` | Add multi-UE rfsim scripts (start_ues/stop_ues) + stop_ue |
 | `83c89c7` | channel_sweep: state-file handoff + restore channel on interrupt |
 | `43cf196` | watch_MCS: select metrics by direction (dl/ul/ue) |
 | `7fbefad` | Add scripts/watch_MCS.sh — live MCS/SNR/BLER monitor |

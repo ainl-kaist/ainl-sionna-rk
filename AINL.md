@@ -7,6 +7,10 @@ This file is **fork-only** and is intentionally kept separate from the upstream
 with it. Anything listed here is added/changed by us; upstream files are otherwise
 left untouched.
 
+> **Label convention:** notes tagged **`[SH]`** are personal records left by
+> Sunghyun (lab lead) — so students and collaborators can tell them apart from
+> general project documentation.
+
 ## Changed files
 
 The list below is **auto-generated** by `scripts/update-ainl.sh` (run from the
@@ -14,6 +18,7 @@ The list below is **auto-generated** by `scripts/update-ainl.sh` (run from the
 Do not edit it by hand — anything between the AUTO markers is overwritten.
 
 <!-- AUTO:files start -->
+- `.claude/settings.json` — added
 - `.gitignore` — modified
 - `config/b200/.env` — added
 - `config/common/docker-compose.override.yaml` — added
@@ -172,3 +177,18 @@ git fetch upstream
 git switch main && git merge upstream/main && git push
 git switch ainl-dev && git merge main
 ```
+
+### Dev machines  `[SH]`
+
+Lab work happens on more than one host; they share state only through
+`origin/ainl-dev`, so **always `git pull` before starting and `git push` when
+done** to avoid diverging branches.
+
+- **`ainl-spark-01`** — primary development host (as of 2026-06).
+- **`ainl-spark-02`** — used mainly by a student for their own development.
+  (Earlier lab work up to `5ff39e3` was done here before the move to
+  `ainl-spark-01`.)
+
+Claude Code settings: the shared `.claude/settings.json` (curated allowlist) is
+committed so everyone inherits it; personal/host-specific overrides go in
+`.claude/settings.local.json`, which is git-ignored.

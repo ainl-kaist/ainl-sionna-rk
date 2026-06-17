@@ -1,0 +1,21 @@
+{
+  "//": "Shared project settings for the AINL sionna-rk fork. Curated allowlist of common, low-risk lab commands so collaborators (incl. students) are not prompted for routine work. Personal/host-specific overrides go in .claude/settings.local.json (git-ignored).",
+  "permissions": {
+    "allow": [
+      "Bash(./scripts/*.sh:*)",
+      "Bash(bash -n scripts/*.sh)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker inspect:*)",
+      "Bash(docker compose:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

@@ -190,7 +190,7 @@ services:
             - ${XAPP_SCRIPT:-../../plugins/ric_xapps/src/zmq_stats_server.py}:/xapp/xapp.py
         entrypoint: python3 /xapp/xapp.py
         healthcheck:
-            test: /bin/bash -c "pgrep -f xapp.py && ss -tlnp | grep -q ':5555'"
+            test: /bin/bash -c "pgrep -f xapp.py && grep -q 15B3 /proc/net/tcp6 /proc/net/tcp"
             interval: 10s
             timeout: 5s
             retries: 5

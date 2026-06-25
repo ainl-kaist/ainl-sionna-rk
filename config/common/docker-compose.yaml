@@ -172,6 +172,11 @@ services:
                 ipv4_address: 192.168.73.154
         volumes:
             - ../common/flexric.conf:/usr/local/etc/flexric/flexric.conf
+        healthcheck:
+            test: /bin/bash -c "pgrep nearRT-RIC"
+            interval: 10s
+            timeout: 5s
+            retries: 5
     monitor_xapp:
         image: oai-flexric:${FLEXRIC_TAG:-latest}
         container_name: monitor_xapp
@@ -184,6 +189,11 @@ services:
             - ../common/flexric.conf:/usr/local/etc/flexric/flexric.conf
             - ${XAPP_SCRIPT:-../../plugins/ric_xapps/src/zmq_stats_server.py}:/xapp/xapp.py
         entrypoint: python3 /xapp/xapp.py
+        healthcheck:
+            test: /bin/bash -c "pgrep -f xapp.py && ss -tlnp | grep -q ':5555'"
+            interval: 10s
+            timeout: 5s
+            retries: 5
 networks:
     public_net:
         driver: bridge

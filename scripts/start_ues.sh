@@ -115,6 +115,10 @@ for (( i=1; i<=COUNT; i++ )); do
         --cap-add NET_ADMIN --cap-add NET_RAW --cap-add SYS_NICE \
         --cap-add IPC_LOCK --cap-add SYS_PTRACE \
         --restart unless-stopped \
+        --health-cmd '/bin/bash -c "pgrep nr-uesoftmodem"' \
+        --health-interval 10s \
+        --health-timeout 5s \
+        --health-retries 5 \
         --device /dev/net/tun \
         --network "$PUBLIC_NET" --ip "$ip" \
         -e USE_ADDITIONAL_OPTIONS="${UE_RF_OPTIONS} --log_config.global_log_options level,nocolor,time $(echo "$UE_EXTRA_OPTIONS" | sed -E "s/--thread-pool [0-9,]+/--thread-pool ${cores}/")" \

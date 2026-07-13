@@ -159,10 +159,16 @@ services:
         volumes:
             - ${UE_CONFIG:-../common/nrue.uicc.conf}:/opt/oai-nr-ue/etc/nr-ue.conf
         healthcheck:
-            test: /bin/bash -c "pgrep nr-uesoftmodem"
+            # pgrep alone is not enough: the rfsim UE can wedge *post-sync* (stuck at "Got synch",
+            # no RACH) with the softmodem still running, so a process-only check stays green while
+            # the radio is dead. Also require the data-plane tunnel (oaitun_ue1) to carry an IP =
+            # a completed PDU session. A wedged UE then reports `unhealthy`; the bridge launcher's
+            # UE watchdog acts on that (plain `restart:` only fires on process EXIT, not on health).
+            test: /bin/bash -c 'pgrep nr-uesoftmodem >/dev/null && ip -4 addr show oaitun_ue1 2>/dev/null | grep -q "inet "'
             interval: 10s
             timeout: 5s
             retries: 5
+            start_period: 45s   # cold-sync grace so a (re)starting UE isn't flagged before it attaches
     nearRT-RIC:
         image: oai-flexric:${FLEXRIC_TAG:-latest}
         command: "stdbuf -o0 nearRT-RIC"

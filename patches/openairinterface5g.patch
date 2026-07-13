@@ -2076,6 +2076,32 @@ index 9d8683481d..33909c0550 100644
 diff --git a/openair1/SIMULATION/NR_PHY/BLER_SIMULATIONS/AWGN/AWGN_results/bler_sigma_fit.csv b/openair1/SIMULATION/NR_PHY/BLER_SIMULATIONS/AWGN/AWGN_results/bler_sigma_fit.csv
 new file mode 100644
 index 0000000000..e69de29bb2
+diff --git a/openair1/SIMULATION/TOOLS/random_channel.c b/openair1/SIMULATION/TOOLS/random_channel.c
+index d13cfd8921..d2bf67c246 100644
+--- a/openair1/SIMULATION/TOOLS/random_channel.c
++++ b/openair1/SIMULATION/TOOLS/random_channel.c
+@@ -2255,9 +2255,20 @@ static int channelmod_modify_cmd(char *buff, int debug, telnet_printfunc_t prnt)
+       return CMDSTATUS_FOUND;
+     }
+     display_channelmodel(defined_channels[cd_id],debug,prnt);
++    // [AINL] ploss / noise_power_dB / offset are applied as SCALARS in the rfsimulator RX loop
++    // (apply_channelmod.c: path_loss_dB, noise_power_dB, channel_offset) and do NOT affect the channel
++    // taps, so regenerating the taps for them is pointless. It is also UNSAFE: random_channel() rewrites
++    // desc->ch[]/desc->a[] on the telnet thread with no lock, while the lock-free RX apply loop reads
++    // desc->ch[] concurrently -> a data race that intermittently trips glibc "*** buffer overflow
++    // detected ***" under channelmod activity (e.g. a per-tick ploss sweep from the AV mobility bridge).
++    // Only regenerate the taps for parameters that actually change them.
++    const bool regen_taps = strcmp(param, "ploss") != 0
++                         && strcmp(param, "noise_power_dB") != 0
++                         && strcmp(param, "offset") != 0;
+     free(param);
+     free(value);
+-    random_channel(defined_channels[cd_id],false);
++    if (regen_taps)
++      random_channel(defined_channels[cd_id],false);
+   }
+ 
+   return CMDSTATUS_FOUND;
 diff --git a/openair2/E2AP/RAN_FUNCTION/CUSTOMIZED/ran_func_mac.c b/openair2/E2AP/RAN_FUNCTION/CUSTOMIZED/ran_func_mac.c
 index 13b6306a1c..880bf5f86c 100644
 --- a/openair2/E2AP/RAN_FUNCTION/CUSTOMIZED/ran_func_mac.c

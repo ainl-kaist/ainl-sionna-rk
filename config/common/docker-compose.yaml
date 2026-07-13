@@ -99,6 +99,14 @@ services:
         container_name: oai-gnb
         # Same intermittent buffer-overflow abort as the UE; auto-restart to self-heal.
         restart: unless-stopped
+        # Cap the json log: the gNB logs at a high rate, and unbounded it made `docker logs --since`
+        # take seconds (the bridge's DL-MCS read timed out -> blank MCS). The bridge/launcher now read
+        # via `-t --tail` (size-independent) regardless; this also bounds disk. Applies on next recreate.
+        logging:
+            driver: json-file
+            options:
+                max-size: "50m"
+                max-file: "3"
         user: ${USER_ID:-0}:${GROUP_ID:-0}
         runtime: nvidia
         cap_drop:
@@ -140,6 +148,13 @@ services:
         # The rfsim UE softmodem aborts intermittently (buffer overflow) on
         # channelmod activity; auto-restart so it self-heals and re-attaches.
         restart: unless-stopped
+        # Cap the json log (same reason as oai-gnb): keep `docker logs` fast + bound disk. Applies on
+        # next container recreate.
+        logging:
+            driver: json-file
+            options:
+                max-size: "50m"
+                max-file: "3"
         runtime: nvidia
         cap_add:
             - NET_ADMIN  # for interface bringup

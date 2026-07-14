@@ -46,8 +46,9 @@ docker compose --env-file "$env_file" up -d oai-nr-ue
 
 popd
 
-# Wait until the container reports healthy.
-timeout=90
+# Wait until the container reports healthy. rfsim cold-sync time varies and occasionally exceeds 90s
+# (a successful but slow attach), so wait 120s to avoid a false "Timeout" on a UE that is just slow.
+timeout=120
 start_time=$(date +%s)
 echo "Waiting for oai-nr-ue to be healthy (Timeout: ${timeout}s)..."
 while true; do

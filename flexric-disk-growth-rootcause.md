@@ -257,18 +257,43 @@ else
     echo "WARN: flexric.patch does not apply cleanly"; fi
 
 # 2) flexric 이미지 재빌드 (oai-flexric:latest)
-./scripts/build-oai-images.sh ext/openairinterface5g
+#    (a) 권장/빠름 — flexric 이미지만 빌드 (base/asn1c/swig 레이어는 캐시 재사용, 수 분):
+cd ext/openairinterface5g
+docker build --target oai-flexric-fixed --tag oai-flexric:latest \
+             --file docker/Dockerfile.flexric.ubuntu .
+cd ../..
+#    (b) 대안 — 전체 재빌드 (gNB/UE/base 까지 다 빌드, 오래 걸림):
+# ./scripts/build-oai-images.sh ext/openairinterface5g
 
-# 3) 두 컨테이너만 새 이미지로 재생성 (compose project=common)
+# 3) 새 이미지로 재생성 — E2 재등록 순서 주의!
+#    RIC을 재생성하면 gNB의 E2 등록이 끊기고, monitor_xapp는 등록된 E2 노드가
+#    0이면 즉시 종료된다. 아래 순서로 해야 깔끔하게 복구된다.
 cd config/common
-docker compose up -d --force-recreate --no-deps nearRT-RIC monitor_xapp
+# 3a) 새 RIC 먼저 (compose에 restart: unless-stopped 이미 반영됨, cafa1bd)
+docker compose up -d --force-recreate --no-deps nearRT-RIC
+# 3b) gNB 재시작 → 새 RIC에 fresh E2 SETUP (붙어있던 UE는 몇 초 후 재접속).
+#     ※ 반드시 새 RIC이 뜬 뒤에 할 것. RIC이 살아있는 상태에서 gNB가 끊기면
+#       구버전 RIC은 SCTP_SHUTDOWN 에서 segfault(139) 한다(신버전은 자동 재시작).
+docker restart oai-gnb
+#     RIC 로그에 "[E2AP]: E2 SETUP-REQUEST rx ... ngran_gNB" 뜨는지 확인:
+docker logs nearRT-RIC 2>&1 | grep -E 'E2 SETUP-REQUEST rx' | tail -1
+# 3c) 마지막으로 xApp — 이제 등록된 E2 노드를 찾고 healthy 가 된다
+docker compose up -d --force-recreate --no-deps monitor_xapp
 
-# 4) 검증 — 며칠 가동 후에도 안 커지는지
-docker exec nearRT-RIC   sh -c 'ls -lh /log.txt; du -h /log.txt'          # /dev/null 이어야 함
-docker exec monitor_xapp sh -c 'ls -lhS /tmp/xapp_db_* 2>/dev/null | head' # 새 DB 없거나 미증가
+# 4) 검증
+docker exec nearRT-RIC   sh -c 'ls -l /log.txt 2>/dev/null || echo "no /log.txt (→/dev/null) OK"'
+docker exec monitor_xapp sh -c 'ls -lhS /tmp/xapp_db_* 2>/dev/null | head'  # 생성만·미증가(~156kB)
+docker logs monitor_xapp 2>&1 | grep -i 'Published #' | tail -1              # 실시간 publish 지속
+docker ps -as --format '{{.Names}}\t{{.Size}}' | grep -E 'nearRT-RIC|monitor_xapp'
 df -h /
 ```
 
-> 완전 클린 배포라면 `scripts/quickstart-oai.sh --clean ...` 만으로도 flexric
-> 패치가 자동 적용된다(위 1단계 불필요). 위 절차는 **재클론 없이** 기존 호스트를
-> 갱신하는 용도.
+> - 완전 클린 배포라면 `scripts/quickstart-oai.sh --clean ...` 만으로도 flexric
+>   패치가 자동 적용된다(위 1단계 불필요). 위 절차는 **재클론 없이** 기존 호스트를
+>   갱신하는 용도.
+> - `restart: unless-stopped` 는 `config/common/docker-compose.yaml`(cafa1bd)에
+>   들어있으므로, 위 3a 처럼 compose 로 재생성하면 새 RIC에 자동 반영된다. 이미
+>   떠 있는 컨테이너에만 급히 적용하려면 `docker update --restart unless-stopped nearRT-RIC`.
+> - 실시간 데이터(xApp→ZMQ:5555)는 이 패치와 무관하게 그대로 흐른다. 꺼지는 건
+>   아무도 안 읽던 sqlite 아카이브 + RIC 디버그 파일뿐. 필요 시 `FLEXRIC_XAPP_DB=1`
+>   / `FLEXRIC_IAPP_LOG=<path>` 로 재활성.

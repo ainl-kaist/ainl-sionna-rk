@@ -188,6 +188,10 @@ services:
         image: oai-flexric:${FLEXRIC_TAG:-latest}
         command: "stdbuf -o0 nearRT-RIC"
         container_name: nearRT-RIC
+        # nearRT-RIC segfaults (exit 139) on [E2AP] SCTP_SHUTDOWN_EVENT when the
+        # gNB disconnects. Since oai-gnb is restart: unless-stopped (buffer-overflow
+        # self-heal), a gNB crash would otherwise silently kill the RIC for good.
+        restart: unless-stopped
         networks:
             e2_net:
                 ipv4_address: 192.168.73.154

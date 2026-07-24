@@ -155,6 +155,25 @@ already-running containers without recreating them, use the `docker update` /
   Note: this is self-healing, not a fix — a sweep can still lose its remaining
   steps if a softmodem dies mid-run. A real fix needs an OAI image rebuild.
 
+- **nearRT-RIC auto-restart** — in `config/common/docker-compose.yaml`,
+  `restart: unless-stopped` on the `nearRT-RIC` service. The RIC **segfaults
+  (exit 139) on `[E2AP]: SCTP_SHUTDOWN_EVENT`** whenever the gNB disconnects
+  (a pre-existing FlexRIC bug). Because `oai-gnb` is `restart: unless-stopped`
+  (buffer-overflow self-heal, above), every gNB crash would otherwise silently
+  kill the RIC for good (it shipped with `restart: no`) and break xApp
+  monitoring. To apply to an already-running RIC without recreating it (recreate
+  drops the gNB's E2 registration and needs a gNB restart to recover):
+
+  ```bash
+  docker update --restart unless-stopped nearRT-RIC
+  ```
+
+  Note: `monitor_xapp` still exits (by design) if it starts before the gNB has
+  registered E2 with the RIC. Clean recovery order after a RIC recreate/crash:
+  start fresh `nearRT-RIC` → `docker restart oai-gnb` (fresh RIC has no
+  established E2 assoc, so the gNB restart won't re-trigger the segfault) →
+  `docker compose up -d monitor_xapp`.
+
 - **`SYS_PTRACE` on UE/gNB** — also in `config/common/docker-compose.yaml`,
   `SYS_PTRACE` was added to the `oai-nr-ue` and `oai-gnb` `cap_add` lists so
   `gdb` can attach inside the (unprivileged) containers to debug the

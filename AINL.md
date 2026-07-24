@@ -11,6 +11,31 @@ left untouched.
 > Sunghyun (lab lead) — so students and collaborators can tell them apart from
 > general project documentation.
 
+## Environments (two RAN topologies)
+
+This repo can run the RAN in **two mutually-exclusive topologies**. They share
+the same 5G core, docker network (`oai-public-net`) and container names, so only
+one runs at a time — use [scripts/switch_env.sh](scripts/switch_env.sh) to flip
+between them (`switch_env.sh status` shows which is up).
+
+| | **Single gNB** (original) | **CU + 2×DU F1 handover** (added by us) |
+|---|---|---|
+| RAN | one monolithic `oai-gnb` | `oai-cu` + `oai-du-pci0` + `oai-du-pci1` |
+| Config dir | [config/rfsim/](config/rfsim/) (rfsim) · [config/b200/](config/b200/) (B200 radio) · [config/testing/](config/testing/) (CI) | [config/rfsim-ho/](config/rfsim-ho/) |
+| rfsim roles | gNB = server, UE = client | **UE = server, DUs = clients** (UE must hear both DUs) |
+| Handover | n/a | intra-CU F1, manually triggered (`trigger_f1_ho` telnet) |
+| Where it's documented | upstream [README.md](README.md) + the `config/*/.env` files | **[config/rfsim-ho/README.md](config/rfsim-ho/README.md)** |
+| Bring up | `./scripts/switch_env.sh single [rfsim\|b200]` | `./scripts/switch_env.sh ho` |
+
+- **Single gNB** is the stock NVlabs/sionna-rk stack; its behaviour is described
+  by the upstream `README.md`. We only added the `config/*/.env` profiles
+  (`rfsim` / `b200` / `testing`) and the `config/common/` shared configs.
+- **CU + 2×DU handover** is entirely our addition. Its dedicated write-up is
+  [config/rfsim-ho/README.md](config/rfsim-ho/README.md) — topology diagram, why
+  the rfsim client/server roles are inverted, why handover is triggered by hand,
+  run commands, a **"What differs from the main single-gNB stack"** section, how
+  to scale to more DUs, and the `bin/nr-softmodem-cu` CU binary patch.
+
 ## Changed files
 
 The list below is **auto-generated** by `scripts/update-ainl.sh` (run from the

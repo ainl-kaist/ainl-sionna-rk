@@ -44,12 +44,14 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/rfsim/.env` — added
 - `config/testing/.env` — added
 - `flexric-disk-growth-rootcause.md` — added
+- `patches/flexric.patch` — added
 - `patches/openairinterface5g.patch` — modified
 - `scripts/README.md` — added
 - `scripts/channel_sweep.sh` — added
 - `scripts/configure-system.dgx-spark.sh` — modified
 - `scripts/configure-system.sh` — modified
 - `scripts/hooks/pre-commit` — added
+- `scripts/quickstart-oai.sh` — modified
 - `scripts/restart_ue.sh` — added
 - `scripts/start_ue.sh` — added
 - `scripts/start_ues.sh` — added
@@ -160,6 +162,32 @@ already-running containers without recreating them, use the `docker update` /
   symbols and OAI deliberately leaves `SIGABRT`/`SIGSEGV` at default (the handler
   in `softmodem-common.c` is `#if 0`-ed, to allow core dumps), so a `gdb`
   backtrace gives file:line directly — no ASan rebuild needed for a first trace.
+
+## FlexRIC source patches (`patches/flexric.patch`)
+
+FlexRIC ships two writers that grow **without bound** on the container writable
+layer and silently fill the host disk (root-caused in
+[flexric-disk-growth-rootcause.md](flexric-disk-growth-rootcause.md); on
+`ainl-spark-02` these two files reached ~1.1 TB combined). `flexric` is a
+*nested* submodule (`ext/openairinterface5g/openair2/E2AP/flexric`, pinned by
+SHA), so it is **not** covered by `patches/openairinterface5g.patch`. The fix
+lives in a separate `patches/flexric.patch`, applied from within the flexric
+submodule by `scripts/quickstart-oai.sh` right after `git submodule update`
+(idempotent), and picked up by the build via
+`docker/Dockerfile.flexric.ubuntu` (`COPY openair2/E2AP/flexric`).
+
+- **RIC `/log.txt` (nearRT-RIC)** — `src/ric/iApps/stdout.c` dumped every
+  MAC/RLC/PDCP indication to `log.txt` (cwd `/`) with no rotation (observed
+  ~888 GB). The patch defaults `file_path` to `/dev/null`; set
+  **`FLEXRIC_IAPP_LOG=<path>`** to re-enable file logging.
+- **xApp sqlite DB (monitor_xapp)** — `src/xApp/msg_handler_xapp.c` INSERTed
+  every E2 indication into `/tmp/xapp_db_<us>` forever (~24 GB/day, observed
+  ~197 GB). Our xApps stream over ZMQ and never read this DB, so the patch skips
+  `write_db_xapp` by default; set **`FLEXRIC_XAPP_DB=1`** to restore it.
+
+Rebuild to apply: `./scripts/build-oai-images.sh <ext/openairinterface5g>`
+(rebuilds `oai-flexric:latest`), then recreate `nearRT-RIC` / `monitor_xapp` on
+each host. After a fresh `quickstart-oai.sh` the patch is applied automatically.
 
 ## Change log
 

@@ -1,0 +1,61 @@
+diff --git a/src/ric/iApps/stdout.c b/src/ric/iApps/stdout.c
+index 523fc56a..428afc2d 100644
+--- a/src/ric/iApps/stdout.c
++++ b/src/ric/iApps/stdout.c
+@@ -40,7 +40,10 @@
+ static
+ FILE *fp = NULL;
+ 
+-const char* file_path = "log.txt";
++// sionna-rk: default to /dev/null so the RIC does not dump every MAC/RLC/PDCP
++// indication into an unbounded /log.txt (observed ~888GB). Set FLEXRIC_IAPP_LOG
++// to a path to re-enable file logging.
++const char* file_path = "/dev/null";
+ 
+ 
+ static 
+@@ -79,10 +82,12 @@ void init_fp(void)
+   assert(fp == NULL);
+   assert(file_path != NULL);
+ 
+-//  const char* append = "a"; 
+-  const char* write = "w"; 
++//  const char* append = "a";
++  const char* write = "w";
+ 
+-  fp = fopen(file_path, write);
++  // sionna-rk: allow overriding the (default /dev/null) log target via env.
++  const char* env_path = getenv("FLEXRIC_IAPP_LOG");
++  fp = fopen(env_path != NULL ? env_path : file_path, write);
+   assert(fp != NULL);
+ 
+   atexit(close_fp);
+diff --git a/src/xApp/msg_handler_xapp.c b/src/xApp/msg_handler_xapp.c
+index 397e3b80..ffe4aafa 100644
+--- a/src/xApp/msg_handler_xapp.c
++++ b/src/xApp/msg_handler_xapp.c
+@@ -23,6 +23,7 @@
+ #include <assert.h>
+ #include <pthread.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <string.h>
+ 
+ #include "act_proc.h"
+@@ -265,7 +266,15 @@ sm_ind_data_t ind_sm_payload(ric_indication_t const* src)
+   } else {
+    
+    // Write to SQL DB
+-   write_db_xapp(&xapp->db, &ans.val.e2_node, &msg_disp.rd);
++   // sionna-rk: the xApp SDK otherwise INSERTs every E2 indication into
++   // /tmp/xapp_db_<us> forever (observed ~24GB/day, ~197GB). Our xApps stream
++   // over ZMQ and never read this DB, so skip the write by default. Set
++   // FLEXRIC_XAPP_DB=1 to restore the original sqlite logging.
++   static int xapp_db_enabled = -1; // -1 = uninitialised, 0 = off, 1 = on
++   if (xapp_db_enabled == -1)
++     xapp_db_enabled = (getenv("FLEXRIC_XAPP_DB") != NULL) ? 1 : 0;
++   if (xapp_db_enabled)
++     write_db_xapp(&xapp->db, &ans.val.e2_node, &msg_disp.rd);
+ 
+     // Write to the callback. Should I send the E2 Node info to the cb??
+     msg_disp.sm_cb = ans.val.sm_cb;

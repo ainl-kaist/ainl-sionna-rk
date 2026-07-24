@@ -207,3 +207,68 @@ docker exec monitor_xapp sh -c 'ls -lhS /tmp | head'
 | xApp 구현 | `.../flexric/src/xApp/db/db.c`, `.../db/sqlite3/sqlite3_wrapper.c` | sqlite INSERT |
 | 이미지 빌드 | `scripts/build-oai-images.sh` (L76-79), `ext/openairinterface5g/docker/Dockerfile.flexric.ubuntu` | `--target oai-flexric-fixed` |
 | 컨테이너 정의 | `config/common/docker-compose.yaml` | L187 `nearRT-RIC`, L201 `monitor_xapp` |
+
+---
+
+## 해결 완료 (2026-07-24) — sionna-rk 반영 내용
+
+근본 수정을 **소스 패치 + 재현 배선**으로 반영했다. 원인 문서가 놓친 핵심은
+**`flexric`이 SHA로 고정된 *중첩(nested) 서브모듈*** 이라 기존
+`patches/openairinterface5g.patch`로는 건드릴 수 없다는 점 — 별도
+`patches/flexric.patch`로 처리했다.
+
+| 파일 | 변경 |
+|---|---|
+| `ext/.../flexric/src/ric/iApps/stdout.c` | `file_path` 기본값 `"log.txt"` → `"/dev/null"`. `FLEXRIC_IAPP_LOG=<path>`로 재활성. (원인 A) |
+| `ext/.../flexric/src/xApp/msg_handler_xapp.c` | `write_db_xapp` 를 기본 skip, `FLEXRIC_XAPP_DB=1`로 복원. `<stdlib.h>` 추가. (원인 B) |
+| `patches/flexric.patch` (신규) | 위 두 hunk. flexric 서브모듈 루트 기준(`a/src/...`). 정/역방향 clean 적용 검증됨. |
+| `scripts/quickstart-oai.sh` | `git submodule update` 직후 flexric 서브모듈에 `flexric.patch` **멱등** 적용. |
+| `AINL.md` | "FlexRIC source patches" 섹션 문서화. |
+
+> ⚠️ `ext/openairinterface5g`는 outer repo에서 git-ignore 대상이라, 재현성은
+> **전적으로 `patches/flexric.patch` + quickstart 배선**에 달려 있다. 서브모듈
+> 트리를 직접 커밋하지 말 것.
+
+### 호스트별 배포 체크리스트 (rollout)
+
+이미지 레벨 수정이므로 **모든 spark 호스트**에서 재빌드 + 컨테이너 재생성해야
+실제로 반영된다.
+
+- [x] **ainl-spark-02** — 소스 패치/커밋/푸시 + 재빌드·재생성 (이 작업 세션, 2026-07-24)
+- [ ] **ainl-spark-01** — `git pull` 후 아래 절차로 배포 **(미적용 — primary 호스트)**
+
+### 기존 호스트에 배포하는 절차 (이미 repo/서브모듈이 체크아웃된 경우)
+
+`quickstart-oai.sh`를 다시 돌리지 않는 이상, 이미 체크아웃된 flexric 서브모듈은
+**패치가 자동 반영되지 않는다.** 아래처럼 수동 적용 후 재빌드한다:
+
+```bash
+cd ~/sionna-rk
+git pull                                   # patches/flexric.patch + quickstart 변경 수신
+
+# 1) 이미 체크아웃된 flexric 서브모듈에 패치 멱등 적용
+FLEX="$PWD/ext/openairinterface5g/openair2/E2AP/flexric"
+PATCH="$PWD/patches/flexric.patch"
+if git -C "$FLEX" apply --check "$PATCH" 2>/dev/null; then
+    git -C "$FLEX" apply "$PATCH"; echo "applied"
+elif git -C "$FLEX" apply --reverse --check "$PATCH" 2>/dev/null; then
+    echo "already applied"
+else
+    echo "WARN: flexric.patch does not apply cleanly"; fi
+
+# 2) flexric 이미지 재빌드 (oai-flexric:latest)
+./scripts/build-oai-images.sh ext/openairinterface5g
+
+# 3) 두 컨테이너만 새 이미지로 재생성 (compose project=common)
+cd config/common
+docker compose up -d --force-recreate --no-deps nearRT-RIC monitor_xapp
+
+# 4) 검증 — 며칠 가동 후에도 안 커지는지
+docker exec nearRT-RIC   sh -c 'ls -lh /log.txt; du -h /log.txt'          # /dev/null 이어야 함
+docker exec monitor_xapp sh -c 'ls -lhS /tmp/xapp_db_* 2>/dev/null | head' # 새 DB 없거나 미증가
+df -h /
+```
+
+> 완전 클린 배포라면 `scripts/quickstart-oai.sh --clean ...` 만으로도 flexric
+> 패치가 자동 적용된다(위 1단계 불필요). 위 절차는 **재클론 없이** 기존 호스트를
+> 갱신하는 용도.

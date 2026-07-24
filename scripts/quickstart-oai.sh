@@ -98,6 +98,27 @@ pushd "$dest_dir"
 git submodule update --init --recursive
 popd
 
+# apply FlexRIC source patches
+# FlexRIC is a nested submodule (openair2/E2AP/flexric) pinned by SHA, so it is
+# not covered by openairinterface5g.patch and must be patched after submodule
+# init. This disables the unbounded RIC /log.txt dump and the xApp sqlite DB
+# growth (see patches/flexric.patch). Idempotent.
+flexric_patch="${source_dir}/patches/flexric.patch"
+flexric_dir="$dest_dir/openair2/E2AP/flexric"
+if [ -f "$flexric_patch" ] && [ -d "$flexric_dir" ]; then
+    echo "Applying FlexRIC patches..."
+    pushd "$flexric_dir"
+    if git apply --check "$flexric_patch" 2>/dev/null; then
+        git apply "$flexric_patch"
+        echo "Applied patches/flexric.patch"
+    elif git apply --reverse --check "$flexric_patch" 2>/dev/null; then
+        echo "patches/flexric.patch already applied; skipping"
+    else
+        echo "WARNING: patches/flexric.patch did not apply cleanly" >&2
+    fi
+    popd
+fi
+
 if [ "$no_build" = "0" ]; then
     echo "Build OAI images..."
     extra_opts=""

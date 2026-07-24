@@ -32,17 +32,33 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/common/nrue.uicc.conf` — added
 - `config/common/oai_db.sql` — added
 - `config/common/sys_config.yaml` — added
+- `config/rfsim-ho/.env` — added
+- `config/rfsim-ho/.gitignore` — added
+- `config/rfsim-ho/README.md` — added
+- `config/rfsim-ho/docker-compose.yaml` — added
+- `config/rfsim-ho/gnb-cu.conf` — added
+- `config/rfsim-ho/gnb-du.conf` — added
+- `config/rfsim-ho/neighbour-config.conf` — added
+- `config/rfsim-ho/nrue.uicc.conf` — added
+- `config/rfsim-ho/start_handover.sh` — added
 - `config/rfsim/.env` — added
 - `config/testing/.env` — added
+- `flexric-disk-growth-rootcause.md` — added
+- `patches/openairinterface5g.patch` — modified
+- `scripts/README.md` — added
 - `scripts/channel_sweep.sh` — added
+- `scripts/configure-system.dgx-spark.sh` — modified
+- `scripts/configure-system.sh` — modified
 - `scripts/hooks/pre-commit` — added
 - `scripts/restart_ue.sh` — added
 - `scripts/start_ue.sh` — added
 - `scripts/start_ues.sh` — added
 - `scripts/stop_ue.sh` — added
 - `scripts/stop_ues.sh` — added
+- `scripts/switch_env.sh` — added
 - `scripts/update-ainl.sh` — added
 - `scripts/watch_MCS.sh` — added
+- `uhd` — added
 <!-- AUTO:files end -->
 
 ## Added tools

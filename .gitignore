@@ -27,3 +27,4 @@ plugins/ldpc_cuda/src/runtime/build/*
 *.plan
 *.log
 **/build/
+.DS_Store

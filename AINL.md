@@ -66,7 +66,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/rfsim-ho/neighbour-config.conf` — added
 - `config/rfsim-ho/nrue.uicc.conf` — added
 - `config/rfsim-ho/start_handover.sh` — added
-- `config/rfsim/.env` — added
+- `config/rfsim/.env.example.cuda-used` — added
 - `config/testing/.env` — added
 - `flexric-disk-growth-rootcause.md` — added
 - `patches/flexric.patch` — added

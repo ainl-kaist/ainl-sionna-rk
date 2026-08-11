@@ -83,6 +83,24 @@ of DUs; `trigger_f1_ho` round-robins across all of them. Per extra DU:
 
 The real ceiling is host CPU/GPU: each DU runs a full PHY.
 
+## Troubleshooting: UE stuck at "starting", never gets a tunnel IP
+
+Symptom: `start_handover.sh up` times out at the UE step; `oai-nr-ue` stays
+`health: starting` and has no `oaitun_ue1` IP, while `oai-du-pci0` shows a few
+restarts. First check that the UE command line includes `--ssb 516`; without it the UE can
+connect to the rfsim socket but fail PHY sync. If the option is present and the
+stack is still wedged after manual `docker` juggling, recreate the handover
+stack so the scripted order is restored:
+
+```bash
+cd config/rfsim-ho
+./start_handover.sh down
+./start_handover.sh up
+```
+
+The expected order is core -> CU -> DU0 -> UE -> DU1. DU0 may retry rfsim until
+the UE server starts; the UE should then attach to DU0 and create `oaitun_ue1`.
+
 ## CU binary patch (why `bin/nr-softmodem-cu` exists)
 
 The stock `oai-gnb-cuda` image **crashes when run as a pure CU**. The fork's

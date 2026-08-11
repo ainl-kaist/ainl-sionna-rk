@@ -71,12 +71,15 @@ Sionna-RK / OAI 스택을 위한 헬퍼 스크립트들을 분야별로 정리�
 
 단일 gNB 스택 전체를 올리고 내립니다.
 
-- **`start_system.sh [rfsim|b200]`** — 단일 gNB 스택 전체를 기동: 5G 코어(`mysql`,
+- **`start_system.sh [rfsim|b200|ho]`** — `rfsim`/`b200`에서는 단일 gNB 스택 전체를 기동: 5G 코어(`mysql`,
   `oai-amf`, `oai-smf`, `oai-upf`, `oai-ext-dn`), `nearRT-RIC`, `oai-gnb`, 기본
   `oai-nr-ue`, `monitor_xapp`. 각 컨테이너가 healthy가 될 때까지 대기합니다. 기본
-  프로필 `rfsim`. 일반적인 진입점입니다.
-- **`stop_system.sh`** — `config/common`에서 `docker compose down`: 컨테이너 **및
-  공유 네트워크**를 제거합니다. 인자 없음.
+  프로필 `rfsim`. `ho`는 rfsim 기반 CU+2×DU handover 스택
+  (`config/rfsim-ho/start_handover.sh up`)으로 위임합니다. `rfsim`/`b200` 시작 시
+  handover 스택이 남아 있으면 먼저 내리고 single gNB로 전환합니다. 일반적인 진입점입니다.
+- **`stop_system.sh`** — single gNB stack(`config/common`)과 handover stack
+  (`config/rfsim-ho`)을 모두 `docker compose down`합니다. 컨테이너 **및 공유
+  네트워크**를 제거합니다. 인자 없음.
 
 > **두 개의 환경.** 단일 gNB 스택(`config/common`)과 CU+2×DU handover
 > 스택(`config/rfsim-ho`, §6 참조)은 같은 네트워크(`oai-public-net`)와 컨테이너
@@ -168,6 +171,7 @@ CUDA Multi-Process Service. gNB PHY와 Sionna RT GUI가 GPU를 공유할 수 있
 
 ```bash
 ./scripts/start_system.sh rfsim       # 코어 + gNB + 기본 UE
+./scripts/start_system.sh ho          # 코어 + CU + 2xDU + 기본 UE
 ./scripts/start_ues.sh -n 2           # oai-nr-ue2, oai-nr-ue3 추가
 ./scripts/restart_ue.sh               # 기본 UE 재기동
 ./scripts/stop_ues.sh                 # 추가 UE 제거

@@ -57,7 +57,7 @@ cmd_up() {
     $COMPOSE up -d oai-cu
     wait_healthy oai-cu 120
 
-    echo "[3/5] DU0 (PCI 0). Expect rfsim 'connect() failed' until the UE server is up — that is normal."
+    echo "[3/5] DU0 (PCI 0). It may retry rfsim until the UE server is up."
     $COMPOSE up -d oai-du-pci0
     wait_healthy oai-du-pci0 120
 

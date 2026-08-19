@@ -68,6 +68,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/rfsim-ho/start_handover.sh` — added
 - `config/rfsim/.env.example.cuda-used` — added
 - `config/testing/.env` — added
+- `doc/rfsim_vs_b200.md` — added
 - `flexric-disk-growth-rootcause.md` — added
 - `patches/flexric.patch` — added
 - `patches/openairinterface5g.patch` — modified
@@ -76,10 +77,15 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `scripts/configure-system.dgx-spark.sh` — modified
 - `scripts/configure-system.sh` — modified
 - `scripts/hooks/pre-commit` — added
+- `scripts/probe_env/mac-mini.out` — added
+- `scripts/probe_env/probe_env.sh` — added
+- `scripts/probe_env/spark.out` — added
 - `scripts/quickstart-oai.sh` — modified
 - `scripts/restart_ue.sh` — added
+- `scripts/start_system.sh` — modified
 - `scripts/start_ue.sh` — added
 - `scripts/start_ues.sh` — added
+- `scripts/stop_system.sh` — modified
 - `scripts/stop_ue.sh` — added
 - `scripts/stop_ues.sh` — added
 - `scripts/switch_env.sh` — added

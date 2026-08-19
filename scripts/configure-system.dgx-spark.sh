@@ -85,19 +85,19 @@ fi
 sudo apt install -y libzmq5 libczmq-dev libcjson1 libcjson-dev
 
 # install python requirements for tutorials
-base_dir=$(realpath $(dirname "${BASH_SOURCE[0]}")/../)
-pushd $base_dir
+base_dir=$(realpath "$(dirname "${BASH_SOURCE[0]}")/../")
+pushd "$base_dir"
 python3 -m venv env
 source "${base_dir}/env/bin/activate"
 python -m pip install -r "${base_dir}/requirements.txt"
 deactivate
 
 # install USRP drivers
-${base_dir}/scripts/install-usrp.sh
+"${base_dir}/scripts/install-usrp.sh"
 
 # configure SRK_PLATFORM variable. Used to decide platform flags
 if [ -z "$SRK_PLATFORM" ]; then
-  export SRK_PLATFORM=$( ${base_dir}/scripts/detect_host.sh )
+  export SRK_PLATFORM=$( "${base_dir}/scripts/detect_host.sh" )
   echo "export SRK_PLATFORM=\"$SRK_PLATFORM\"" >> ~/.profile
   echo "SRK_PLATFORM set to $SRK_PLATFORM"
 else

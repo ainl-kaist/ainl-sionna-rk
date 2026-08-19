@@ -1,0 +1,49 @@
+===================================================================
+ EE49904 lab environment probe   2026-08-19T05:54:38Z
+===================================================================
+
+[1] PLATFORM
+  uname                              Darwin 25.5.0 arm64
+  macOS                              26.5.2 arm64
+  CPU / RAM                          14 cores / 48 GB
+
+[3] TOOLCHAIN
+  python3                            Python 3.14.6
+  pip3                               pip 26.1.2 from /opt/homebrew/lib/python3.14/site-packages/pip (python 3.14)
+  gcc                                Apple clang version 21.0.0 (clang-2100.1.1.101)
+  g++                                Apple clang version 21.0.0 (clang-2100.1.1.101)
+  cmake                              없음
+  ninja                              없음
+  make                               GNU Make 3.81
+  git                                git version 2.50.1 (Apple Git-155)
+  docker                             Docker version 29.6.2, build dfc4efb
+  protoc                             없음
+  tc                                 없음
+  ip                                 없음
+
+[4] NETWORK REACHABILITY
+  github.com                                 HTTP 200
+  pypi.org                                   HTTP 200
+  gitlab.eurecom.fr                          HTTP 302
+  gitlab.com                                 HTTP 301
+  registry-1.docker.io                       HTTP 401
+  huggingface.co                             HTTP 200
+  registry.ollama.ai                         HTTP 404
+  download.pytorch.org                       HTTP 200
+
+[5] DOCKER
+  daemon                             실행 중
+  server                             29.6.2
+  hello-world pull                   **실패**
+  batfish/allinone pull (~1.5GB)     생략 (PULL_BIG=1 로 실행하면 시험)
+
+[6] GPU / ACCELERATOR
+  Apple Silicon GPU                  Apple M4 Pro (Metal/MPS)
+
+[7] LOCAL LLM  (lab #3 'LLM을 어디서 돌릴 것인가' 결정용)
+  ollama                             ollama version is 0.31.1
+  설치된 모델:
+    NAME    ID    SIZE    MODIFIED 
+  (벤치마크 생략 — 실행하려면:  LLM_BENCH=1 LLM_MODELS="qwen2.5:7b" bash probe_env.sh)
+
+=== 끝 — 위 출력을 전부 복사해 보내주세요 ===

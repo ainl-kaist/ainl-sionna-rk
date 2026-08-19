@@ -7,7 +7,8 @@ set -e  # Stop script on any error
 
 configs_dir=$(realpath $(dirname "${BASH_SOURCE[0]}")/../config)
 
-echo "Shutting down network"
+echo "Shutting down single-gNB stack"
+( cd "${configs_dir}/common" && docker compose down )
 
-cd "${configs_dir}/common"
-docker compose down
+echo "Shutting down handover stack"
+( cd "${configs_dir}/rfsim-ho" && ./start_handover.sh down )

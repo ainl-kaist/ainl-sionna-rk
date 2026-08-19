@@ -18,12 +18,25 @@ function popd() {
 # defaults
 CONFIG_NAME=${1:-rfsim}
 configs_dir=$(realpath $(dirname "${BASH_SOURCE[0]}")/../config)
+
+if [[ "$CONFIG_NAME" == "ho" ]]; then
+    echo "Using config: ho (rfsim CU + 2 DUs handover stack)"
+    exec "${configs_dir}/rfsim-ho/start_handover.sh" up
+fi
+
+# rfsim/b200 are single-gNB profiles. If the handover stack is present,
+# tear it down first so container names and shared networks do not collide.
+if docker ps -a --format "{{.Names}}" | grep -qxE "oai-cu|oai-du-pci[0-9]+"; then
+    echo "Stopping handover stack before starting single gNB"
+    ( cd "${configs_dir}/rfsim-ho" && docker compose down )
+fi
+
 env_file="${configs_dir}/${CONFIG_NAME}/.env"
 
 # Validate config
 if [[ ! -f "$env_file" ]]; then
     echo "Error: .env file not found at $env_file"
-    echo "Usage: $0 [rfsim|b200]"
+    echo "Usage: $0 [rfsim|b200|ho]"
     exit 1
 fi
 

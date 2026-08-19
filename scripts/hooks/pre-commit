@@ -1,0 +1,8 @@
+#!/bin/bash
+# Auto-maintain the AUTO:files region of AINL.md before each commit.
+repo="$(git rev-parse --show-toplevel)"
+gen="$repo/scripts/update-ainl.sh"
+[ -x "$gen" ] || exit 0
+"$gen" >/dev/null 2>&1 || exit 0      # never block a commit on generator errors
+git add "$repo/AINL.md" 2>/dev/null || true
+exit 0

@@ -22,7 +22,7 @@ function execute() {
         echo "[DRY-RUN] $@"
     else
         # actually execute the command
-        eval "$@"
+        "$@"
         ret_val=$?
         if [ $ret_val -ne 0 ]; then
             echo "Command failed with exit code $ret_val"
@@ -32,7 +32,7 @@ function execute() {
 }
 
 # default values
-source_dir=$(realpath $(dirname "${BASH_SOURCE[0]}")/../)
+source_dir=$(realpath "$(dirname "${BASH_SOURCE[0]}")/../")
 platform="unknown"
 family="unknown"
 model="unknown"

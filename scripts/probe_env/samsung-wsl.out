@@ -1,0 +1,58 @@
+===================================================================
+ EE49904 lab environment probe   2026-08-19T10:52:06Z
+===================================================================
+
+[1] PLATFORM
+  uname                              Linux 6.6.87.2-microsoft-standard-WSL2 x86_64
+  distro                             Ubuntu 26.04 LTS
+  kernel                             6.6.87.2-microsoft-standard-WSL2
+  WSL                                YES  (WSL_DISTRO_NAME=Ubuntu)
+  WSL interop                        2.6.3.0
+  CPU / RAM                          16 cores / 7 GB
+  disk free ($HOME)                  954G
+
+[2] KERNEL NETWORK FEATURES  (lab #1 FlexRIC, #5 Mininet, #6 TSN 판정용)
+  (sudo 없이 실행됨 — 모듈 존재 여부만 확인, 실제 생성 시험은 생략)
+  sch_netem                          모듈 있음
+  sch_taprio                         **없음**
+  sch_etf                            모듈 있음
+  sch_cbs                            **없음**
+  sch_mqprio                         모듈 있음
+  sch_htb                            모듈 있음
+  openvswitch                        모듈 있음
+  sctp                               모듈 있음
+
+[3] TOOLCHAIN
+  python3                            Python 3.14.4
+  pip3                               없음
+  gcc                                없음
+  g++                                없음
+  cmake                              없음
+  ninja                              없음
+  make                               없음
+  git                                git version 2.53.0
+  docker                             없음
+  protoc                             없음
+  tc                                 tc utility, iproute2-6.19.0, libbpf 1.6.3
+  ip                                 ip utility, iproute2-6.19.0, libbpf 1.6.3
+
+[4] NETWORK REACHABILITY
+  github.com                                 HTTP 200
+  pypi.org                                   HTTP 200
+  gitlab.eurecom.fr                          HTTP 502
+  gitlab.com                                 HTTP 301
+  registry-1.docker.io                       HTTP 401
+  huggingface.co                             HTTP 200
+  registry.ollama.ai                         HTTP 404
+  download.pytorch.org                       HTTP 200
+
+[5] DOCKER
+  docker                             설치 안 됨
+
+[6] GPU / ACCELERATOR
+  NVIDIA GPU                         없음 (CPU-only)
+
+[7] LOCAL LLM  (lab #3 'LLM을 어디서 돌릴 것인가' 결정용)
+  ollama                             설치 안 됨
+
+=== 끝 — 위 출력을 전부 복사해 보내주세요 ===

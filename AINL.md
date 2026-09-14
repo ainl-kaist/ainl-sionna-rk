@@ -292,6 +292,7 @@ above is auto-generated. For the raw history: `git log --oneline fa405b8..ainl-d
 
 | Commit | Summary |
 |--------|---------|
+| `2e617b9` | Korea e-Um 5G: band n79 gNB config (4.7 GHz) + n78/n79 .env examples |
 | `7687a27` | restart_ue.sh; watch_MCS: log-timestamp prefix + live ploss fallback |
 | `2a59c8b` | Track config/ (lab configs, compose, subscriber DB) |
 | `da0f698` | Add multi-UE rfsim scripts (start_ues/stop_ues) + stop_ue |

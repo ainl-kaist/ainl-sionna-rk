@@ -46,12 +46,15 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `.claude/settings.json` — added
 - `.gitignore` — modified
 - `config/b200/.env` — added
+- `config/b200/.env.example.n78` — added
+- `config/b200/.env.example.n79` — added
 - `config/common/docker-compose.override.yaml` — added
 - `config/common/docker-compose.yaml` — added
 - `config/common/flexric.conf` — added
 - `config/common/gnb.sa.band78.106prbs.conf` — added
 - `config/common/gnb.sa.band78.24prbs.conf` — added
 - `config/common/gnb.sa.band78.51prbs.conf` — added
+- `config/common/gnb.sa.band79.51prbs.conf` — added
 - `config/common/mini_nonrf_config.yaml` — added
 - `config/common/mysql-healthcheck.sh` — added
 - `config/common/nrue.uicc.conf` — added
@@ -67,6 +70,8 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/rfsim-ho/nrue.uicc.conf` — added
 - `config/rfsim-ho/start_handover.sh` — added
 - `config/rfsim/.env.example.cuda-used` — added
+- `config/rfsim/.env.example.n78` — added
+- `config/rfsim/.env.example.n79` — added
 - `config/testing/.env` — added
 - `doc/rfsim_vs_b200.md` — added
 - `flexric-disk-growth-rootcause.md` — added
@@ -79,7 +84,8 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `scripts/hooks/pre-commit` — added
 - `scripts/probe_env/mac-mini.out` — added
 - `scripts/probe_env/probe_env.sh` — added
-- `scripts/probe_env/spark.out` — added
+- `scripts/probe_env/spark-01.out` — added
+- `scripts/probe_env/spark-02.out` — added
 - `scripts/quickstart-oai.sh` — modified
 - `scripts/restart_ue.sh` — added
 - `scripts/start_system.sh` — modified
@@ -212,6 +218,46 @@ already-running containers without recreating them, use the `docker update` /
   symbols and OAI deliberately leaves `SIGABRT`/`SIGSEGV` at default (the handler
   in `softmodem-common.c` is `#if 0`-ed, to allow core dumps), so a `gdb`
   backtrace gives file:line directly — no ASan rebuild needed for a first trace.
+
+## Korea private 5G (e-Um 5G) band n79 support
+
+Korea's private-5G program (**이음5G / e-Um 5G**) allocates **4.72–4.82 GHz**
+(= 3GPP **band n79**) and 28.9–29.5 GHz. The 4.7 GHz band is reachable with our
+USRP **B200** (AD9364, 70 MHz–6 GHz); the 28 GHz band is not. Added a band-n79
+cell profile and validated it end-to-end in rfsim on 2026-09-14 (UE registered,
+PDU session up, bidirectional ping UE ↔ ext-dn).
+
+- **[config/common/gnb.sa.band79.51prbs.conf](config/common/gnb.sa.band79.51prbs.conf)**
+  — 51 PRB @ 30 kHz SCS, TDD. SSB at **ARFCN 715680** (GSCN 8704 = 4735.20 MHz,
+  on the n79 sync raster `8480 + 16k`), Point A at **ARFCN 714964**
+  (4724.46 MHz); the 20 MHz channel occupies 4723.64–4743.64 MHz, inside the
+  e-Um allocation. Same SSB↔PointA offset (716) as the band78 51-PRB config, so
+  the k_SSB alignment carries over.
+- **Example env profiles** — `.env.example.n78` / `.env.example.n79` in
+  [config/rfsim/](config/rfsim/) and [config/b200/](config/b200/) hold the two
+  bands as ready-made `.env` files; switch with e.g.
+  `cp config/rfsim/.env.example.n79 config/rfsim/.env`. The tracked
+  `config/b200/.env` is currently the **n79** variant.
+
+Two OAI gotchas cost a debugging round each — both are now commented in the
+config files:
+
+1. **CORESET0 index**: OAI treats n79 as a *min channel BW 40 MHz* band
+   (`nr_mac_common.c`, ~line 3551), so 38.213 **Table 13-6** applies and
+   `controlResourceSetZero` must be **< 10** — band78's index 12 dies in an
+   `AssertFatal` at gNB start. The n79 config uses index 0 (24 RBs, 2 symbols,
+   offset 0), which fits the 51-PRB carrier.
+2. **Soft-UE `--band 79` is mandatory**: `nr-uesoftmodem` defaults to band 78
+   (`softmodem-common.h`, `.defintval=78`). Without `--band 79` the UE decodes
+   PBCH at 4.7 GHz fine, then aborts in `to_nrarfcn()` ("DL carrier frequency
+   4735200 kHz > 3790820") while filling the RX indication.
+
+**OTA notes** `[SH]`: B200 TX power drops a few dB at 4.7 GHz vs 3.5 GHz —
+expect to retune `att_tx/att_rx` and `max_rxgain`, and check that the antennas
+actually cover 4.7 GHz. Over-the-air transmission needs an MSIT e-Um 5G
+frequency assignment (or an experimental-station license); until then test
+cabled/shielded. COTS phones sold in Korea mostly lack n79 (public networks are
+n78/n257); Quectel RM5xx modules support it.
 
 ## FlexRIC source patches (`patches/flexric.patch`)
 

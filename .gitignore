@@ -5,8 +5,8 @@ doc/public
 doc/_build
 profiler/reports
 dev/
-configs/**/.env
-config/rfsim/.env
+# Local device settings; commit .env.example* templates instead.
+.env
 configs/**/docker-compose.override.yaml
 config/common/generated/
 **/demapper_in.txt

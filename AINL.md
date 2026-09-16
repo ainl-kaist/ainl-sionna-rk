@@ -45,9 +45,9 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 <!-- AUTO:files start -->
 - `.claude/settings.json` — added
 - `.gitignore` — modified
-- `config/b200/.env` — added
 - `config/b200/.env.example.n78` — added
 - `config/b200/.env.example.n79` — added
+- `config/b200/.env.example.n79.usrp_no_2.35D7C0A` — added
 - `config/common/docker-compose.override.yaml` — added
 - `config/common/docker-compose.yaml` — added
 - `config/common/flexric.conf` — added
@@ -60,7 +60,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/common/nrue.uicc.conf` — added
 - `config/common/oai_db.sql` — added
 - `config/common/sys_config.yaml` — added
-- `config/rfsim-ho/.env` — added
+- `config/rfsim-ho/.env.example` — added
 - `config/rfsim-ho/.gitignore` — added
 - `config/rfsim-ho/README.md` — added
 - `config/rfsim-ho/docker-compose.yaml` — added
@@ -72,7 +72,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/rfsim/.env.example.cuda-used` — added
 - `config/rfsim/.env.example.n78` — added
 - `config/rfsim/.env.example.n79` — added
-- `config/testing/.env` — added
+- `config/testing/.env.example` — added
 - `doc/rfsim_vs_b200.md` — added
 - `flexric-disk-growth-rootcause.md` — added
 - `patches/flexric.patch` — added
@@ -237,8 +237,13 @@ PDU session up, bidirectional ping UE ↔ ext-dn).
 - **Example env profiles** — `.env.example.n78` / `.env.example.n79` in
   [config/rfsim/](config/rfsim/) and [config/b200/](config/b200/) hold the two
   bands as ready-made `.env` files; switch with e.g.
-  `cp config/rfsim/.env.example.n79 config/rfsim/.env`. The tracked
-  `config/b200/.env` is currently the **n79** variant.
+  `cp config/rfsim/.env.example.n79 config/rfsim/.env`. All actual `.env`
+  files are local settings, ignored by Git. For B200 USRP #2 (serial
+  `35D7C0A`), initialize the **n79** profile with
+  `cp config/b200/.env.example.n79.usrp_no_2.35D7C0A config/b200/.env`.
+  On a fresh checkout, also initialize handover/testing when needed with
+  `cp config/rfsim-ho/.env.example config/rfsim-ho/.env` or
+  `cp config/testing/.env.example config/testing/.env`.
 
 Two OAI gotchas cost a debugging round each — both are now commented in the
 config files:

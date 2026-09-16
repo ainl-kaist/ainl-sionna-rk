@@ -29,3 +29,5 @@ plugins/ldpc_cuda/src/runtime/build/*
 *.log
 **/build/
 .DS_Store
+# Personal shell configuration
+scripts/probe_env/.bashrc

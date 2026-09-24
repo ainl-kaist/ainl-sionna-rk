@@ -138,6 +138,35 @@ CUDA Multi-Process Service. gNB PHY와 Sionna RT GUI가 GPU를 공유할 수 있
 
 ## 7. 실험, 데모 & 모니터링
 
+- **`ue_status.py`** — gNB 로그에서 최근 관측된 UE별 최신 MAC 통계를 표로 출력합니다.
+  Python 3 표준 라이브러리와 Docker CLI만 필요하며, 출력과 도움말은 영어입니다.
+  RNTI, CU-UE-ID, IMSI, UE-IP, 동기 상태, RSRP, UL SNR, DL/UL MCS·BLER, 누적 TX/RX를 표시합니다.
+  기본 컨테이너는 `oai-gnb`, 조회 구간은 최근 10초입니다. 로그 기반이므로 접속 해제된
+  UE가 최대 조회 구간 동안 남을 수 있으며, 통계가 없다고 미접속을 확정하지 않습니다.
+  IMSI와 UE-IP는 AMF의 최근 UE 표와 SMF의 보존된 세션 로그를 CU-ID → RAN UE NGAP ID
+  → IMSI로 연결해 조회합니다. UE-IP는 Docker 컨테이너 IP가 아닌 UE의 PDU 세션 할당
+  주소입니다. AMF에 연결된 gNB가 하나인 구성을 지원하며, 여러 gNB이거나 식별자가
+  중복되거나 기록이 없으면 IP를 추측하지 않고 `-`로 표시합니다.
+  코어 조회 실패 시에도 무선 통계를 출력하고 영어 경고를 표시합니다.
+  SMF 로그는 과거 할당 기록이므로 실시간 세션 상태를 확정하지 않으며, 할당 기록의
+  시각도 함께 표시합니다. 로그 회전으로 기록이 사라지면 IP를 조회할 수 없습니다.
+  watch 모드도 매번 보존된 SMF 로그를 읽으므로 로그가 크면 갱신이 느려질 수 있습니다.
+  AMF 표 갱신 지연으로 재접속 직후에는 매칭 정보가 늦게 반영될 수 있습니다.
+
+  ```bash
+  ./scripts/ue_status.py                         # 한 번 조회
+  ./scripts/ue_status.py --watch                 # 2초 간격 갱신, Ctrl+C 종료
+  ./scripts/ue_status.py --watch --interval 5    # 5초 간격 갱신
+  ./scripts/ue_status.py -c oai-gnb --window 20  # 컨테이너 및 조회 구간 지정
+  ./scripts/ue_status.py --json                  # 자동화용 JSON
+  ./scripts/ue_status.py --amf oai-amf --smf oai-smf  # 코어 컨테이너 지정
+  ```
+
+  `--json --watch`는 한 줄에 하나의 JSON snapshot을 출력합니다. `last_seen`은 Docker
+  로그의 UTC 시각이고, TX/RX는 gNB 기준 누적 바이트입니다. `--json`에는 로그에서
+  확인되는 PH, PCMAX, DL/UL 오류 누적값과 HARQ rounds도 포함됩니다.
+  IP 관련 JSON 필드는 `imsi`, `ue_ip`, `ip_source`, `ip_last_seen`이며 미확인 값은 `null`입니다.
+
 - **`channel_sweep.sh`** — rfsim `chanmod` 파라미터(예: path loss)를 스윕합니다. 각
   값마다 rfsimulator 텔넷으로 `channelmod modify …`를 보내고(DL은 UE, UL은 gNB
   경유), 짧은 iperf3를 돌린 뒤 처리량 표를 출력합니다.

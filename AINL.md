@@ -96,6 +96,8 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `scripts/stop_ue.sh` — added
 - `scripts/stop_ues.sh` — added
 - `scripts/switch_env.sh` — added
+- `scripts/tests/test_ue_status.py` — added
+- `scripts/ue_status.py` — added
 - `scripts/update-ainl.sh` — added
 - `scripts/watch_MCS.sh` — added
 - `uhd` — added

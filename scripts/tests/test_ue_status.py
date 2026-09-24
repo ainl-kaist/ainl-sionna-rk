@@ -1,5 +1,7 @@
 """Regression checks for identity-based UE IP matching."""
 import importlib.util
+import io
+from contextlib import redirect_stdout
 from pathlib import Path
 import unittest
 from unittest.mock import patch
@@ -59,6 +61,69 @@ class CoreLookupTests(unittest.TestCase):
     def test_incomplete_and_invalid_context(self):
         self.assertEqual(status.parse_smf('2026-09-24T07:00:00Z SMF CONTEXT:\n'), {})
         self.assertEqual(status.parse_smf(smf_context('111', '999.1.1.1'))['111']['addresses'], [])
+
+
+class ConnectivityTests(unittest.TestCase):
+    def test_reply_no_reply_and_execution_error_are_distinct(self):
+        for code, output, expected in (
+            (0, '64 bytes: time=12.3 ms', 'reachable'),
+            (1, '100% packet loss', 'no-reply'),
+            (2, 'ping: operation not permitted', 'error'),
+        ):
+            with self.subTest(code=code):
+                data = {'ues': [{'ue_ip': '12.1.1.3'}]}
+                response = status.subprocess.CompletedProcess([], code, output)
+                with patch.object(status.subprocess, 'run', return_value=response) as run:
+                    status.check_connectivity(data, 'oai-ext-dn')
+                probe = data['ues'][0]['connectivity'][0]
+                self.assertEqual(probe['status'], expected)
+                self.assertEqual(run.call_args.args[0],
+                                 ['docker', 'exec', 'oai-ext-dn', 'ping', '-n', '-c', '3', '-W', '1', '12.1.1.3'])
+                self.assertEqual(probe['output'], output)
+
+    def test_full_ping_output_is_displayed(self):
+        output = ('PING 12.1.1.3 (12.1.1.3) 56(84) bytes of data.\n'
+                  '64 bytes from 12.1.1.3: icmp_seq=1 ttl=63 time=24.4 ms\n\n'
+                  '--- 12.1.1.3 ping statistics ---\n'
+                  '3 packets transmitted, 1 received, 66.6667% packet loss\n'
+                  'rtt min/avg/max/mdev = 24.4/24.4/24.4/0.0 ms')
+        data = {'checked_at': '2026-09-24T10:00:00Z', 'container': 'gnb',
+                'window_seconds': 10, 'ues': [{'rnti': 'abcd', 'ue_ip': '12.1.1.3',
+                                             'last_seen': '2026-09-24T10:00:00Z'}]}
+        with patch.object(status.subprocess, 'run', return_value=
+                          status.subprocess.CompletedProcess([], 0, output)):
+            status.check_connectivity(data, 'source')
+        rendered = io.StringIO()
+        with redirect_stdout(rendered):
+            status.display(data)
+        for line in output.splitlines():
+            self.assertIn(line, rendered.getvalue())
+        self.assertIn('REACHABLE', rendered.getvalue())
+
+    def test_disabled_or_missing_ip_never_runs_ping(self):
+        for ip, enabled in [('12.1.1.3', False), (None, True)]:
+            data = {'ues': [{'ue_ip': ip}]}
+            with patch.object(status.subprocess, 'run') as run:
+                status.check_connectivity(data, 'source', enabled)
+            run.assert_not_called()
+            self.assertEqual(data['ues'][0]['connectivity'][0]['status'], 'skipped')
+
+    def test_timeout_does_not_prevent_next_address_probe(self):
+        data = {'ues': [{'ue_ip': '12.1.1.3,2001:db8::3'}]}
+        with patch.object(status.subprocess, 'run', side_effect=[
+            status.subprocess.TimeoutExpired('docker', 5),
+            status.subprocess.CompletedProcess([], 0, 'time<1 ms'),
+        ]):
+            status.check_connectivity(data, 'source')
+        self.assertEqual([p['status'] for p in data['ues'][0]['connectivity']],
+                         ['error', 'reachable'])
+
+    def test_invalid_address_is_not_executed(self):
+        data = {'ues': [{'ue_ip': '-bad-input'}]}
+        with patch.object(status.subprocess, 'run') as run:
+            status.check_connectivity(data, 'source')
+        run.assert_not_called()
+        self.assertEqual(data['ues'][0]['connectivity'][0]['status'], 'error')
 
 
 if __name__ == '__main__':

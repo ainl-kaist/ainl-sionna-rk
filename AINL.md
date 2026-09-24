@@ -82,6 +82,8 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `scripts/configure-system.dgx-spark.sh` — modified
 - `scripts/configure-system.sh` — modified
 - `scripts/hooks/pre-commit` — added
+- `scripts/install-ue-status.sh` — added
+- `scripts/install-ue-wwan-status.sh` — added
 - `scripts/probe_env/mac-mini.out` — added
 - `scripts/probe_env/probe_env.sh` — added
 - `scripts/probe_env/samsung-wsl.out` — added
@@ -97,7 +99,9 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `scripts/stop_ues.sh` — added
 - `scripts/switch_env.sh` — added
 - `scripts/tests/test_ue_status.py` — added
+- `scripts/tests/test_ue_wwan_status.py` — added
 - `scripts/ue_status.py` — added
+- `scripts/ue_wwan_status.py` — added
 - `scripts/update-ainl.sh` — added
 - `scripts/watch_MCS.sh` — added
 - `uhd` — added

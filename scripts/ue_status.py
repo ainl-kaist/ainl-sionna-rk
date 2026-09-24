@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Show recently observed OAI UE MAC statistics using read-only Docker logs."""
+"""Show recently observed OAI UE MAC statistics from Docker logs and probe UE IPs with ICMP ping."""
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import ipaddress
 import math
@@ -173,12 +173,69 @@ def snapshot(container, window, amf='oai-amf', smf='oai-smf'):
     return data
 
 
+
+def check_connectivity(data, container, enabled=True):
+    """Send three ICMP requests to each matched address from the data network."""
+    data['ping_container'] = container
+    for ue in data['ues']:
+        ue['connectivity'] = []
+        if not enabled or not ue.get('ue_ip'):
+            ue['connectivity'].append({
+                'status': 'skipped',
+                'detail': 'Disabled by --no-ping.' if not enabled else 'No matched UE IP.'})
+            continue
+        for address in ue['ue_ip'].split(','):
+            result = {'address': address, 'checked_at': datetime.now(timezone.utc).isoformat()}
+            try:
+                address = str(ipaddress.ip_address(address))
+                probe = subprocess.run(
+                    ['docker', 'exec', container, 'ping', '-n', '-c', '3', '-W', '1', address],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=8)
+                result['output'] = probe.stdout.strip()
+                if probe.returncode == 0:
+                    result.update(status='reachable', detail='ICMP reply received.')
+                elif probe.returncode == 1:
+                    result.update(status='no-reply', detail='No ICMP reply received.')
+                else:
+                    result.update(status='error', detail=probe.stdout.strip() or f'Exit code {probe.returncode}.')
+            except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+                result.update(status='error', detail=str(error))
+            ue['connectivity'].append(result)
+
+
+def format_kst(timestamp):
+    """Render Docker/ISO timestamps in KST for human-readable output."""
+    try:
+        value = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        if value.tzinfo is None:
+            return timestamp
+        return value.astimezone(timezone(timedelta(hours=9), 'KST')).isoformat(sep=' ') + ' KST'
+    except ValueError:
+        return timestamp
+
+
 def display(data):
-    print(f"[{data['checked_at']}] {data['container']} | UEs observed in the last {data['window_seconds']}s: {len(data['ues'])}")
-    print('Log-based observations. Disconnected UEs disappear after the observation window expires.')
+    def section(title):
+        print(f"\n{title}")
+        print('-' * 78)
+
+    print('=' * 78)
+    print('UE STATUS')
+    print('=' * 78)
+    print(f"Checked at : {format_kst(data['checked_at'])}")
+    print(f"Container  : {data['container']}")
+    print(f"Observed   : {len(data['ues'])} UE(s) in the last {data['window_seconds']}s")
+    print(f"Observation window: the last {data['window_seconds']} seconds of gNB logs (set with --window SECONDS).")
+    print('A UE is listed if its radio statistics appear in that time range.')
+    print(f"After disconnection, it may remain listed for up to {data['window_seconds']} seconds after its last log entry.")
+    print('It disappears on a subsequent refresh once that entry falls outside the window.')
+    print('Being listed is not proof of a live connection; missing statistics do not prove disconnection.')
+    if data.get('warnings'):
+        section('WARNINGS')
     for warning in data.get('warnings', []):
         print(f'Warning: {warning}')
     if not data['ues']:
+        section('UE STATISTICS')
         print('No recent UE statistics. Check UE connectivity and whether MAC statistics logging is enabled.')
         return
     columns = [('RNTI', 'rnti'), ('CU-ID', 'cu_ue_id'), ('IMSI', 'imsi'),
@@ -189,14 +246,43 @@ def display(data):
                ('TX(bytes)', 'mac_tx_bytes'), ('RX(bytes)', 'mac_rx_bytes')]
     rows = [[str(ue[key]) if ue.get(key) is not None else '-' for _, key in columns] for ue in data['ues']]
     widths = [max(len(name), *(len(row[i]) for row in rows)) for i, (name, _) in enumerate(columns)]
-    for row in [[name for name, _ in columns], *rows]:
+    section('UE STATISTICS')
+    print('  '.join(name.ljust(width) for (name, _), width in zip(columns, widths)))
+    print('  '.join('-' * width for width in widths))
+    for row in rows:
         print('  '.join(value.ljust(width) for value, width in zip(row, widths)))
-    print('TX/RX: cumulative bytes at the gNB; BLER: reported value; -: unavailable in the latest block.')
-    print('UE-IP: last recorded SMF allocation matched through AMF; -: unavailable or unmatched.')
+    section('FIELD NOTES')
+    print('TX/RX : cumulative bytes sent/received by the gNB')
+    print('BLER  : reported value')
+    print('-     : unavailable in the latest statistics')
+    print('UE-IP: address from SMF allocation records, matched to this UE using AMF identity information.')
+    print('       See IP CONNECTIVITY below for the ICMP ping results.')
+    print('       - means no allocation record was found or matched to this UE.')
+    section('IP CONNECTIVITY')
+    print(f"Probe source: {data.get('ping_container', 'unavailable')} -> UE IP (3 ICMP requests, 1s reply timeout)")
+    print('A reply confirms ICMP reachability only. No reply may also mean ICMP filtering;')
+    print('it does not by itself prove that the UE is disconnected.')
     for ue in data['ues']:
+        for probe in ue.get('connectivity', [{'status': 'skipped', 'detail': 'Not tested.'}]):
+            print(f"\n  UE {ue['rnti']} | {probe.get('address', ue.get('ue_ip') or '-')} | {probe['status'].upper()}")
+            output = probe.get('output')
+            if output:
+                lines = output.splitlines()
+                print(f"    Ping: {lines[0]}")
+                for line in lines[1:]:
+                    print(f'    {line}')
+            else:
+                print(f"    {probe['detail']}")
+    section('OBSERVATION TIMES (KST)')
+    print('The IP record time is not the last traffic or disconnect time;')
+    print('it may predate the radio statistics.')
+    for ue in data['ues']:
+        print(f"\n  UE {ue['rnti']} | IP: {ue.get('ue_ip') or '-'}")
+        print(f"  Latest radio statistics: {format_kst(ue['last_seen'])} (gNB log)")
         if ue.get('ip_last_seen'):
-            print(f"  {ue['rnti']} IP allocation last seen: {ue['ip_last_seen']}")
-        print(f"  {ue['rnti']} last seen: {ue['last_seen']}")
+            print(f"  IP allocation recorded: {format_kst(ue['ip_last_seen'])} (SMF log)")
+        else:
+            print('  IP allocation recorded: unavailable')
 
 
 def positive(value):
@@ -215,10 +301,13 @@ def main():
     parser.add_argument('--json', action='store_true', help='Output JSON; watch mode emits one snapshot per line')
     parser.add_argument('--amf', default='oai-amf', help='AMF container (default: oai-amf)')
     parser.add_argument('--smf', default='oai-smf', help='SMF container (default: oai-smf)')
+    parser.add_argument('--ping-container', default='oai-ext-dn', help='ICMP probe source container (default: oai-ext-dn)')
+    parser.add_argument('--no-ping', action='store_true', help='Skip active ICMP probes; show log observations only')
     args = parser.parse_args()
     try:
         while True:
             data = snapshot(args.container, args.window, args.amf, args.smf)
+            check_connectivity(data, args.ping_container, enabled=not args.no_ping)
             if args.json:
                 print(json.dumps(data, ensure_ascii=False), flush=True)
             else:

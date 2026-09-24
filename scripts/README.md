@@ -138,6 +138,65 @@ CUDA Multi-Process Service. gNB PHY와 Sionna RT GUI가 GPU를 공유할 수 있
 
 ## 7. 실험, 데모 & 모니터링
 
+- **`install-ue-wwan-status.sh`** — UE 단말의 모든 사용자를 위한 `ue-wwan-status` 명령을 설치합니다.
+  설치 스크립트와 `ue_wwan_status.py`를 같은 디렉터리에 두고 **UE Linux 호스트에서** 실행합니다.
+
+  ```bash
+  sudo ./scripts/install-ue-wwan-status.sh
+  ue-wwan-status
+  ```
+
+  `/usr/local/bin/ue-wwan-status`에 root 소유, 실행 권한 0755로 복사합니다.
+  원본 수정 후에는 다시 실행해 갱신합니다. `--prefix DIR`로 `DIR/bin`에 설치할 수도 있습니다.
+  Python 3, iproute2, ICMP 전송 권한이 있는 ping이 필요하며 설치 스크립트가 네트워크나
+  ping 권한을 변경하지는 않습니다. 설치 디렉터리는 각 사용자의 PATH에 있어야 합니다.
+
+- **`ue_wwan_status.py`** — **UE 단말의 Linux 호스트에서** 실행하는 WWAN 진단입니다.
+  기본 인터페이스 `wwan0`의 존재, UP 플래그, global IP, IPv4/IPv6 라우트를 확인합니다.
+  셀룰러 인터페이스의 `operstate UNKNOWN`만으로 실패 처리하지 않습니다.
+  Python 3, iproute2, ping이 필요합니다. 출력은 영어입니다.
+  화면 출력은 KST 시각과 구분선이 있는 `INTERFACE AND IP ADDRESS`, `ROUTING`,
+  `IP CONNECTIVITY`, `RESULT SUMMARY` 구간으로 구성됩니다. 검사 결과와 핵심 설명만
+  간결하게 표시하며, 일반 경로 선택 실패와 인터페이스 지정 ping 성공을 구분합니다.
+  JSON 시각은 기존 UTC 형식을 유지합니다.
+
+  ```bash
+  # 이 파일을 UE 단말에 복사한 후 단말에서 실행
+  ./ue_wwan_status.py                           # 기본 서버 192.168.72.135 확인
+  ./ue_wwan_status.py --target <reachable-IP>    # 서버 변경
+  ./ue_wwan_status.py --watch
+  ./ue_wwan_status.py --json
+  ./ue_wwan_status.py --interface wwan1
+  ./ue_wwan_status.py --local-only              # 통신 검사 생략
+  ```
+
+  `<reachable-IP>`에는 UE에서 도달 가능해야 하는 서버의 실제 숫자 IP를 넣습니다.
+  기본 서버는 `192.168.72.135`이며 `--target`으로 변경할 수 있습니다.
+  일반 트래픽의 경로가 WWAN을 선택하는지 확인하고,
+  `ping -I wwan0`으로 해당 인터페이스를 통한 통신도 별도 확인합니다.
+  `--local-only`는 로컬 설정만 검사하며 통신 성공을 의미하지 않습니다.
+  기본 경로가 없어도 목적지별 경로로 통신할 수 있으므로 기본 경로 유무는 참고 정보입니다.
+  정책 라우팅의 경로 판정은 현재 실행 사용자의 일반 트래픽 기준이며 앱별 mark 등은
+  모사하지 않습니다. ICMP 차단 때문에 ping이 실패할 수도 있습니다.
+  설정은 변경하지 않습니다. ping 권한 오류가 나면 단말의 ping 권한 설정을 확인하세요.
+  종료 코드는 0(검사 통과), 1(검사 실패), 2(도구/실행 오류)입니다.
+  `--watch`는 Ctrl+C까지 계속 실행하며 `--json --watch`는 줄별 JSON을 출력합니다.
+
+
+- **`install-ue-status.sh`** — 모든 사용자를 위한 `ue-status` 명령을 설치합니다.
+  저장소 접근 권한에 의존하지 않도록 `ue_status.py`를 `/usr/local/bin/ue-status`에
+  복사하고 실행 권한(0755)을 설정합니다. 기본 경로 설치 시 root 소유로 설치됩니다.
+
+  ```bash
+  sudo ./scripts/install-ue-status.sh
+  ue-status
+  ```
+
+  원본 스크립트를 수정한 뒤에는 설치 스크립트를 다시 실행해 갱신합니다.
+  `--prefix DIR`로 설치 위치를 `DIR/bin/ue-status`로 바꿀 수 있습니다.
+  각 사용자의 PATH에 설치 디렉터리가 있어야 하며, 실행에는 Python 3, Docker CLI와
+  Docker 데몬 접근 권한이 필요합니다. 설치 스크립트는 Docker 권한이나 그룹을 변경하지 않습니다.
+
 - **`ue_status.py`** — gNB 로그에서 최근 관측된 UE별 최신 MAC 통계를 표로 출력합니다.
   Python 3 표준 라이브러리와 Docker CLI만 필요하며, 출력과 도움말은 영어입니다.
   RNTI, CU-UE-ID, IMSI, UE-IP, 동기 상태, RSRP, UL SNR, DL/UL MCS·BLER, 누적 TX/RX를 표시합니다.
@@ -148,6 +207,13 @@ CUDA Multi-Process Service. gNB PHY와 Sionna RT GUI가 GPU를 공유할 수 있
   주소입니다. AMF에 연결된 gNB가 하나인 구성을 지원하며, 여러 gNB이거나 식별자가
   중복되거나 기록이 없으면 IP를 추측하지 않고 `-`로 표시합니다.
   코어 조회 실패 시에도 무선 통계를 출력하고 영어 경고를 표시합니다.
+  기본적으로 `oai-ext-dn`에서 매 조회마다 UE IP당 ICMP ping 3회를 보냅니다(응답 대기 1초).
+  응답별 RTT, 패킷 손실률, RTT 통계를 포함한 ping 원본 출력을 표시합니다.
+  `IP CONNECTIVITY`에 `REACHABLE`, `NO-REPLY`, `ERROR`, `SKIPPED`로 결과를 표시합니다.
+  무응답은 ICMP 차단 때문일 수도 있으므로 연결 종료로 단정하지 않습니다.
+  `--no-ping`으로 생략하거나 `--ping-container NAME`으로 출발 컨테이너를 지정합니다.
+  컨테이너에 ping이 필요하며, UE가 많으면 순차 검사 때문에 갱신이 늦어질 수 있습니다.
+  JSON에는 `ping_container`와 UE별 `connectivity` 결과 목록이 추가됩니다.
   SMF 로그는 과거 할당 기록이므로 실시간 세션 상태를 확정하지 않으며, 할당 기록의
   시각도 함께 표시합니다. 로그 회전으로 기록이 사라지면 IP를 조회할 수 없습니다.
   watch 모드도 매번 보존된 SMF 로그를 읽으므로 로그가 크면 갱신이 느려질 수 있습니다.

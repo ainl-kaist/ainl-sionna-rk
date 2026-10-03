@@ -11,6 +11,10 @@ import sys
 import time
 
 
+# Replaced with the git commit by scripts/install-ue-wwan-status.sh.
+__version__ = 'dev'
+
+
 def run(command):
     result = subprocess.run(command, capture_output=True, text=True, timeout=15)
     if result.returncode:
@@ -155,6 +159,7 @@ def target_ip(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--version', action='version', version=f'ue-wwan-status {__version__}')
     parser.add_argument('-i', '--interface', default='wwan0', help='UE interface (default: wwan0)')
     destination = parser.add_mutually_exclusive_group()
     destination.add_argument('--target', type=target_ip, default='192.168.72.135',

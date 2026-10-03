@@ -1,7 +1,12 @@
 """WWAN diagnostics without changing interfaces or sending packets."""
 import importlib.util
+import io
 import json
+from contextlib import redirect_stdout
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -48,6 +53,30 @@ class WwanTests(unittest.TestCase):
             data = wwan.inspect('wwan0', '192.168.72.135')
         self.assertFalse(data['ok'])
         self.assertIn('does not prove', data['checks'][-1]['detail'])
+
+
+class VersionTests(unittest.TestCase):
+    def test_source_reports_dev(self):
+        out = io.StringIO()
+        with patch.object(sys, 'argv', ['ue-wwan-status', '--version']), redirect_stdout(out), \
+                self.assertRaises(SystemExit) as exit_:
+            wwan.main()
+        self.assertEqual(exit_.exception.code, 0)
+        self.assertEqual(out.getvalue(), 'ue-wwan-status dev\n')
+
+    def test_installer_stamps_git_describe(self):
+        scripts = Path(__file__).parents[1]
+        expected = subprocess.run(['git', '-C', str(scripts), 'describe', '--always', '--dirty'],
+                                  capture_output=True, text=True).stdout.strip() or 'unknown'
+        with tempfile.TemporaryDirectory() as prefix:
+            subprocess.run([str(scripts / 'install-ue-wwan-status.sh'), '--prefix', prefix],
+                           check=True, capture_output=True)
+            installed = Path(prefix) / 'bin' / 'ue-wwan-status'
+            self.assertEqual(installed.stat().st_mode & 0o777, 0o755)
+            result = subprocess.run([sys.executable, str(installed), '--version'],
+                                    check=True, capture_output=True, text=True)
+        self.assertEqual(result.stdout, f'ue-wwan-status {expected}\n')
+        self.assertIn("__version__ = 'dev'", (scripts / 'ue_wwan_status.py').read_text())
 
 
 if __name__ == '__main__':

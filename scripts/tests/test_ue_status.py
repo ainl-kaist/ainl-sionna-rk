@@ -3,6 +3,9 @@ import importlib.util
 import io
 from contextlib import redirect_stdout
 from pathlib import Path
+import subprocess
+import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -124,6 +127,30 @@ class ConnectivityTests(unittest.TestCase):
             status.check_connectivity(data, 'source')
         run.assert_not_called()
         self.assertEqual(data['ues'][0]['connectivity'][0]['status'], 'error')
+
+
+class VersionTests(unittest.TestCase):
+    def test_source_reports_dev(self):
+        out = io.StringIO()
+        with patch.object(sys, 'argv', ['ue-status', '--version']), redirect_stdout(out), \
+                self.assertRaises(SystemExit) as exit_:
+            status.main()
+        self.assertEqual(exit_.exception.code, 0)
+        self.assertEqual(out.getvalue(), 'ue-status dev\n')
+
+    def test_installer_stamps_git_describe(self):
+        scripts = Path(__file__).parents[1]
+        expected = subprocess.run(['git', '-C', str(scripts), 'describe', '--always', '--dirty'],
+                                  capture_output=True, text=True).stdout.strip() or 'unknown'
+        with tempfile.TemporaryDirectory() as prefix:
+            subprocess.run([str(scripts / 'install-ue-status.sh'), '--prefix', prefix],
+                           check=True, capture_output=True)
+            installed = Path(prefix) / 'bin' / 'ue-status'
+            self.assertEqual(installed.stat().st_mode & 0o777, 0o755)
+            result = subprocess.run([sys.executable, str(installed), '--version'],
+                                    check=True, capture_output=True, text=True)
+        self.assertEqual(result.stdout, f'ue-status {expected}\n')
+        self.assertIn("__version__ = 'dev'", (scripts / 'ue_status.py').read_text())
 
 
 if __name__ == '__main__':

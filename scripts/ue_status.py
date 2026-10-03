@@ -10,6 +10,9 @@ import subprocess
 import sys
 import time
 
+# Replaced with the git commit by scripts/install-ue-status.sh.
+__version__ = 'dev'
+
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
 HEADER = re.compile(r'UE RNTI ([0-9a-fA-F]+) CU-UE-ID (\d+) (\S+)')
 DETAIL = re.compile(r'UE ([0-9a-fA-F]+): (.*)')
@@ -294,6 +297,7 @@ def positive(value):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--version', action='version', version=f'ue-status {__version__}')
     parser.add_argument('-c', '--container', default='oai-gnb', help='Container name (default: oai-gnb)')
     parser.add_argument('--window', type=positive, default=10, help='Recent log window in seconds (default: 10)')
     parser.add_argument('-w', '--watch', action='store_true', help='Refresh periodically (Ctrl+C to exit)')

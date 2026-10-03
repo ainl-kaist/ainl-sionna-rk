@@ -138,18 +138,20 @@ CUDA Multi-Process Service. gNB PHY와 Sionna RT GUI가 GPU를 공유할 수 있
 
 ## 7. 실험, 데모 & 모니터링
 
-- **`install-ue-wwan-status.sh`** — UE 단말의 모든 사용자를 위한 `ue-wwan-status` 명령을 설치합니다.
-  설치 스크립트와 `ue_wwan_status.py`를 같은 디렉터리에 두고 **UE Linux 호스트에서** 실행합니다.
+- **`install-ue-wwan-status.sh`** — UE 단말(Jetson)의 모든 사용자를 위한 `ue-wwan-status` 명령을 설치합니다.
+  원본은 이 저장소에만 두고, **gNB 호스트의 checkout에서** 실행합니다. 커밋을 찍은 사본을
+  `scp`로 UE 호스트에 보내 `/usr/local/bin/ue-wwan-status`에 root 소유, 0755로 설치합니다.
 
   ```bash
-  sudo ./scripts/install-ue-wwan-status.sh
-  ue-wwan-status
+  ./scripts/install-ue-wwan-status.sh                       # 기본: ainl_jon@100.77.54.30
+  ./scripts/install-ue-wwan-status.sh --host USER@HOST      # 또는 UE_WWAN_HOST=USER@HOST
+  ssh ainl_jon@100.77.54.30 ue-wwan-status --version        # 설치된 커밋 확인
   ```
 
-  `/usr/local/bin/ue-wwan-status`에 root 소유, 실행 권한 0755로 복사합니다.
-  원본 수정 후에는 다시 실행해 갱신합니다. `--prefix DIR`로 `DIR/bin`에 설치할 수도 있습니다.
-  Python 3, iproute2, ICMP 전송 권한이 있는 ping이 필요하며 설치 스크립트가 네트워크나
-  ping 권한을 변경하지는 않습니다. 설치 디렉터리는 각 사용자의 PATH에 있어야 합니다.
+  UE 호스트의 sudo가 비밀번호를 요구하면, 사본만 복사해 두고 그곳에서 실행할 명령을 출력한 뒤
+  종료 코드 3으로 멈춥니다. 원본 수정 후 커밋하고 다시 실행해 갱신합니다. `--prefix DIR`은
+  이 머신의 `DIR/bin`에 설치합니다. UE 호스트에는 Python 3, iproute2, ICMP 전송 권한이
+  있는 ping이 필요하며 설치 스크립트가 네트워크나 ping 권한을 변경하지는 않습니다.
 
 - **`ue_wwan_status.py`** — **UE 단말의 Linux 호스트에서** 실행하는 WWAN 진단입니다.
   기본 인터페이스 `wwan0`의 존재, UP 플래그, global IP, IPv4/IPv6 라우트를 확인합니다.

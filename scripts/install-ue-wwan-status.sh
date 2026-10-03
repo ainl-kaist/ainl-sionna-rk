@@ -14,8 +14,10 @@ Run this on the gNB host, from the repository checkout. The default copies a
 stamped ue_wwan_status.py to the UE host over ssh/scp and installs it there as
 $dest (root-owned, mode 0755).
 The host defaults to \$UE_WWAN_HOST, or $default_host if that is unset.
-The remote install needs sudo on the UE host. If it would prompt for a
-password, the installer prints the command to run there and stops.
+One ssh connection is reused, so the UE login password is asked at most once.
+The remote install needs sudo on the UE host. If sudo needs a password, it is
+asked for in this terminal; without a terminal, the installer prints the
+command to run there and exits 3.
 
 --prefix DIR installs to DIR/bin/ue-wwan-status on this machine instead.
 
@@ -89,9 +91,15 @@ if [[ -n "$prefix" ]]; then
     exit 0
 fi
 
-ssh_opts=(-o ConnectTimeout=10)
+# Share one connection across ssh/scp calls so the login password is asked once.
+ctl_dir=$(mktemp -d "${TMPDIR:-/tmp}/ue-wwan-ssh.XXXXXXXX")
+ssh_opts=(-o ConnectTimeout=10 -o ControlMaster=auto -o "ControlPath=$ctl_dir/%C" -o ControlPersist=60)
 temp_file=$(mktemp "${TMPDIR:-/tmp}/ue-wwan-status.XXXXXXXX")
-trap 'rm -f -- "$temp_file"' EXIT
+cleanup() {
+    ssh "${ssh_opts[@]}" -O exit -- "$host" 2>/dev/null || true
+    rm -rf -- "$temp_file" "$ctl_dir"
+}
+trap cleanup EXIT
 stamp "$temp_file"
 
 remote_tmp=$(ssh "${ssh_opts[@]}" -- "$host" 'mktemp /tmp/ue-wwan-status.XXXXXXXX')
@@ -103,18 +111,27 @@ scp -q "${ssh_opts[@]}" -- "$temp_file" "$host:$remote_tmp"
 
 # Install beside the target, then rename, so running copies never see a partial file.
 install_cmd="sh -c 'install -m 0755 -o root -g root -- $remote_tmp $dest.new && mv -fT $dest.new $dest'"
-if ! ssh "${ssh_opts[@]}" -- "$host" "sudo -n $install_cmd"; then
-    printf 'Copied version %s to %s:%s, but sudo there needs a password.\n' "$version" "$host" "$remote_tmp" >&2
-    echo 'Finish the install with:' >&2
-    printf "  ssh -t %s \"sudo %s && rm -f %s && %s --version\"\n" "$host" "$install_cmd" "$remote_tmp" "$dest" >&2
-    exit 3
+if ! ssh "${ssh_opts[@]}" -- "$host" "sudo -n $install_cmd" 2>/dev/null; then
+    installed_by_prompt=false
+    if [[ -t 0 ]]; then
+        printf 'sudo on %s needs a password for %s.\n' "$host" "${host%%@*}" >&2
+        if ssh "${ssh_opts[@]}" -t -- "$host" "sudo $install_cmd"; then
+            installed_by_prompt=true
+        fi
+    fi
+    if [[ "$installed_by_prompt" != true ]]; then
+        printf 'Copied version %s to %s:%s, but could not run sudo there.\n' "$version" "$host" "$remote_tmp" >&2
+        echo 'Finish the install with:' >&2
+        printf "  ssh -t %s \"sudo %s && rm -f %s && %s --version\"\n" "$host" "$install_cmd" "$remote_tmp" "$dest" >&2
+        exit 3
+    fi
 fi
 ssh "${ssh_opts[@]}" -- "$host" "rm -f -- $remote_tmp"
 
-installed=$(ssh "${ssh_opts[@]}" -- "$host" "$dest --version")
-printf 'Installed: %s:%s (version %s)\n' "$host" "$dest" "$version"
+installed=$(ssh "${ssh_opts[@]}" -- "$host" "$dest --version" 2>&1) || true
 if [[ "$installed" != "ue-wwan-status $version" ]]; then
-    printf 'Error: %s reports "%s"\n' "$host" "$installed" >&2
+    printf 'Error: expected version %s, but %s reports "%s"\n' "$version" "$host" "$installed" >&2
     exit 1
 fi
+printf 'Installed: %s:%s (version %s)\n' "$host" "$dest" "$version"
 echo 'Runtime requirements on the UE host: Python 3, iproute2, and ping with ICMP permissions.'

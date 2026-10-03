@@ -148,8 +148,10 @@ CUDA Multi-Process Service. gNB PHY와 Sionna RT GUI가 GPU를 공유할 수 있
   ssh ainl_jon@100.77.54.30 ue-wwan-status --version        # 설치된 커밋 확인
   ```
 
-  UE 호스트의 sudo가 비밀번호를 요구하면, 사본만 복사해 두고 그곳에서 실행할 명령을 출력한 뒤
-  종료 코드 3으로 멈춥니다. 원본 수정 후 커밋하고 다시 실행해 갱신합니다. `--prefix DIR`은
+  ssh 연결 하나를 재사용하므로 UE 로그인 비밀번호는 한 번만 묻고, 이어서 UE 호스트의 sudo
+  비밀번호를 묻습니다. 터미널 없이 실행하면 사본만 복사해 두고 그곳에서 실행할 명령을 출력한 뒤
+  종료 코드 3으로 멈춥니다. 설치 후 `--version`이 이 checkout의 커밋과 다르면 실패로 끝납니다.
+  스테이징된 변경도 `-dirty`로 표시되니, 커밋하고 깨끗한 상태에서 다시 실행해 갱신합니다. `--prefix DIR`은
   이 머신의 `DIR/bin`에 설치합니다. UE 호스트에는 Python 3, iproute2, ICMP 전송 권한이
   있는 ping이 필요하며 설치 스크립트가 네트워크나 ping 권한을 변경하지는 않습니다.
 

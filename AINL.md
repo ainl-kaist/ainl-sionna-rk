@@ -48,6 +48,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `config/b200/.env.example.n78` — added
 - `config/b200/.env.example.n79` — added
 - `config/b200/.env.example.n79.usrp_no_2.35D7C0A` — added
+- `config/b200/.env.example.n79.usrp_no_2.35D7C0A.cuda` — added
 - `config/common/docker-compose.override.yaml` — added
 - `config/common/docker-compose.yaml` — added
 - `config/common/flexric.conf` — added

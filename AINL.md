@@ -1,5 +1,7 @@
 # AINL Lab Additions to sionna-rk
 
+**English** | [한국어](AINL.ko.md)
+
 Work done by our lab (**AINL**) on top of **NVlabs/sionna-rk v1.2.0 (`fa405b8`)**.
 
 This file is **fork-only** and is intentionally kept separate from the upstream
@@ -45,6 +47,7 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 <!-- AUTO:files start -->
 - `.claude/settings.json` — added
 - `.gitignore` — modified
+- `CLAUDE.md` — added
 - `config/b200/.env.example.cuda.20260916` — added
 - `config/b200/.env.example.n78` — added
 - `config/b200/.env.example.n79` — added
@@ -79,8 +82,10 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
 - `flexric-disk-growth-rootcause.md` — added
 - `patches/flexric.patch` — added
 - `patches/openairinterface5g.patch` — modified
+- `scripts/README.ko.md` — added
 - `scripts/README.md` — added
 - `scripts/channel_sweep.sh` — added
+- `scripts/check-readme-sync.sh` — added
 - `scripts/configure-system.dgx-spark.sh` — modified
 - `scripts/configure-system.sh` — modified
 - `scripts/hooks/pre-commit` — added
@@ -174,9 +179,17 @@ Do not edit it by hand — anything between the AUTO markers is overwritten.
   - Usage: `./scripts/watch_MCS.sh [dl|ul|ue]`  (no arg = both directions)
 
 - **[scripts/update-ainl.sh](scripts/update-ainl.sh)** — Regenerate the
-  "Changed files" region above from git. Run automatically by the `pre-commit`
+  "Changed files" region above (in both `AINL.md` and `AINL.ko.md`) from git. Run automatically by the `pre-commit`
   hook; can also be run by hand. After a fresh clone, install the hook once:
   `cp scripts/hooks/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit`
+
+- **[scripts/check-readme-sync.sh](scripts/check-readme-sync.sh)** — Check that
+  `scripts/README.md` (English) and `scripts/README.ko.md` (Korean) have the same
+  structure (heading levels, script entries, code-block commands with comments
+  stripped). The `pre-commit` hook runs it on the staged pair whenever either
+  README is staged and blocks the commit if they differ; it checks the
+  `AINL.md` / `AINL.ko.md` pair (this file) the same way.
+  - Usage: `./scripts/check-readme-sync.sh [<en.md> <ko.md>]`
 
 ## Environment tweaks (in `config/`)
 

@@ -1,287 +1,301 @@
 # scripts/
 
-Sionna-RK / OAI 스택을 위한 헬퍼 스크립트들을 분야별로 정리한 문서입니다. 대체로
-라이프사이클 순서(호스트 설정 → 이미지 빌드 → 시스템 실행 → 실험)를 따르며, 마지막에
-개발자/버전 추적용 헬퍼를 둡니다.
+**English** | [한국어](README.ko.md)
 
-런타임 스크립트 상당수는 **config 프로필** 인자를 받아 어떤 `config/<profile>/.env`를
-읽을지 선택합니다(기본값 `rfsim`). 유효 프로필: `rfsim`(소프트웨어 RF 시뮬레이터),
-`b200`(실제 USRP B200 라디오).
+Helper scripts for the Sionna-RK / OAI stack, grouped by area. The order roughly
+follows the lifecycle (host setup → image build → running the system →
+experiments), with developer / version-tracking helpers at the end.
 
-일부 스크립트는 최상위 `make` 타깃으로 묶여 있습니다 — `make prepare-system`(호스트
-설정), `make sionna-rk`(OAI 가져오기 + 빌드 + 설정 + 플러그인), `make build-gnb`(RAN
-이미지).
+Many runtime scripts take a **config profile** argument that selects which
+`config/<profile>/.env` to read (default `rfsim`). Valid profiles: `rfsim`
+(software RF simulator), `b200` (real USRP B200 radio).
 
-## 목차
-1. [호스트 설정 & 설치](#1-호스트-설정--설치)
-2. [소스 가져오기, 패치 & 이미지 빌드](#2-소스-가져오기-패치--이미지-빌드)
-3. [런타임 — 시스템 라이프사이클](#3-런타임--시스템-라이프사이클)
-4. [런타임 — UE 제어](#4-런타임--ue-제어)
-5. [런타임 — GPU MPS](#5-런타임--gpu-mps)
-6. [런타임 — 환경 전환](#6-런타임--환경-전환)
-7. [실험, 데모 & 모니터링](#7-실험-데모--모니터링)
-8. [개발자 / 버전 추적 헬퍼](#8-개발자--버전-추적-헬퍼)
+Some scripts are wrapped by top-level `make` targets — `make prepare-system`
+(host setup), `make sionna-rk` (fetch OAI + build + configs + plugins),
+`make build-gnb` (RAN images).
+
+## Contents
+1. [Host setup & installation](#1-host-setup--installation)
+2. [Fetching sources, patching & building images](#2-fetching-sources-patching--building-images)
+3. [Runtime — system lifecycle](#3-runtime--system-lifecycle)
+4. [Runtime — UE control](#4-runtime--ue-control)
+5. [Runtime — GPU MPS](#5-runtime--gpu-mps)
+6. [Runtime — switching environments](#6-runtime--switching-environments)
+7. [Experiments, demos & monitoring](#7-experiments-demos--monitoring)
+8. [Developer / version-tracking helpers](#8-developer--version-tracking-helpers)
 
 ---
 
-## 1. 호스트 설정 & 설치
+## 1. Host setup & installation
 
-머신당 1회 수행하는 설정(Jetson / Grace 계열 호스트). `make prepare-system`으로 묶여
-있습니다. 일부는 `sudo`가 필요합니다.
+One-time setup per machine (Jetson / Grace-class hosts). Wrapped by
+`make prepare-system`. Some steps need `sudo`.
 
-- **`detect_host.sh`** — 보드 정보로 플랫폼을 감지합니다(예: "Orin Nano Super", "AGX
-  Orin", "DGX Spark"). 다른 스크립트가 플랫폼별 설정을 고를 때 사용합니다.
-- **`configure-system.sh`** — 호스트 설정을 적용합니다. 해당하는
-  **`configure-system.<platform>.sh`**(`agx-orin`, `agx-thor`, `dgx-spark`,
-  `orin-nano`)로 분기합니다. 플래그: `--force-platform <p>`, `--verbose`,
-  `--dry-run`.
-- **`build-custom-kernel.sh`** — 커스텀 L4T 커널을 빌드합니다(실시간 동작 / USRP에
-  필요). `<destination_path>`, `--l4t-version`, `--clean`, `--dry-run` 등. `sudo`
-  필요.
-- **`install-custom-kernel.sh`** — 빌드된 커널 + 모듈을 설치하고 부트 시퀀스를
-  갱신합니다. `sudo` 필요.
-- **`install-usrp.sh`** — UHD/USRP 드라이버를 설치합니다(`b200` 프로필용).
+- **`detect_host.sh`** — Detects the platform from board information (e.g. "Orin
+  Nano Super", "AGX Orin", "DGX Spark"). Other scripts use it to pick
+  platform-specific settings.
+- **`configure-system.sh`** — Applies host settings. Dispatches to the matching
+  **`configure-system.<platform>.sh`** (`agx-orin`, `agx-thor`, `dgx-spark`,
+  `orin-nano`). Flags: `--force-platform <p>`, `--verbose`, `--dry-run`.
+- **`build-custom-kernel.sh`** — Builds a custom L4T kernel (needed for real-time
+  operation / USRP). `<destination_path>`, `--l4t-version`, `--clean`,
+  `--dry-run`, etc. Needs `sudo`.
+- **`install-custom-kernel.sh`** — Installs the built kernel + modules and updates
+  the boot sequence. Needs `sudo`.
+- **`install-usrp.sh`** — Installs the UHD/USRP drivers (for the `b200` profile).
   `--branch <branch|tag>`, `--force`, `--dry-run`.
 
-## 2. 소스 가져오기, 패치 & 이미지 빌드
+## 2. Fetching sources, patching & building images
 
-업스트림 OAI를 가져와 이 킷의 패치를 적용하고 docker 이미지를 빌드합니다.
-`make sionna-rk`와 `make build-gnb`로 묶여 있습니다.
+Fetches upstream OAI, applies this kit's patches and builds the docker images.
+Wrapped by `make sionna-rk` and `make build-gnb`.
 
-- **`quickstart-oai.sh`** — RAN 엔드투엔드: 고정된 버전의 OAI를 가져와 패치하고
-  빌드합니다. `--source <kit-rootdir> --dest <oai5g_dir>`, `--oai-version`,
+- **`quickstart-oai.sh`** — RAN end to end: fetches, patches and builds a pinned
+  OAI version. `--source <kit-rootdir> --dest <oai5g_dir>`, `--oai-version`,
   `--no-build`, `--clean`, `--debug`, `--tag`.
-- **`quickstart-cn5g.sh`** — OAI CN5G 코어에 대해 동일하게 수행. `--arch (x86|arm64)`,
-  `--branch`, `--source`, `--dest` 등.
-- **`patch-oai.sh`** — 이 킷의 소스 변경을 OAI RAN 트리에 적용합니다(quickstart-oai
-  내부에서 사용).
-- **`patch-oai-cn5g.sh`** — CN5G 트리에 패치를 적용합니다.
-- **`generate-configs.sh`** — `config/` 트리를 생성합니다: 공통 파일은
-  `config/common`으로, compose/env는 `config/<name>`으로 넣고 config별 패치를
-  적용합니다.
-- **`build-oai-images.sh`** — CUDA RAN 이미지를 빌드합니다(`ran-base-cuda` →
+- **`quickstart-cn5g.sh`** — Does the same for the OAI CN5G core.
+  `--arch (x86|arm64)`, `--branch`, `--source`, `--dest`, etc.
+- **`patch-oai.sh`** — Applies this kit's source changes to the OAI RAN tree (used
+  inside quickstart-oai).
+- **`patch-oai-cn5g.sh`** — Applies the patches to the CN5G tree.
+- **`generate-configs.sh`** — Generates the `config/` tree: shared files go to
+  `config/common`, compose/env files to `config/<name>`, and per-config patches
+  are applied.
+- **`build-oai-images.sh`** — Builds the CUDA RAN images (`ran-base-cuda` →
   `ran-build-cuda` → `oai-gnb-cuda`, `oai-nr-ue-cuda`, `oai-flexric`).
   `<oai5g_dir>`, `--debug`, `--tag`, `--no-cache`, `--force-platform`.
-- **`build-cn5g-images.sh`** — CN5G 코어 이미지를 빌드합니다. `<oai-cn5g_dir>`,
+- **`build-cn5g-images.sh`** — Builds the CN5G core images. `<oai-cn5g_dir>`,
   `--tag`, `--debug`.
-- **`show_build_errors.sh`** — `build.log`를 스캔해 컴파일 에러를 출력합니다(빌드 실패
-  후 빠른 원인 파악용).
+- **`show_build_errors.sh`** — Scans `build.log` and prints the compile errors (for
+  a quick diagnosis after a failed build).
 
-## 3. 런타임 — 시스템 라이프사이클
+## 3. Runtime — system lifecycle
 
-단일 gNB 스택 전체를 올리고 내립니다.
+Brings the whole single-gNB stack up and down.
 
-- **`start_system.sh [rfsim|b200|ho]`** — `rfsim`/`b200`에서는 단일 gNB 스택 전체를 기동: 5G 코어(`mysql`,
-  `oai-amf`, `oai-smf`, `oai-upf`, `oai-ext-dn`), `nearRT-RIC`, `oai-gnb`, 기본
-  `oai-nr-ue`, `monitor_xapp`. 각 컨테이너가 healthy가 될 때까지 대기합니다. 기본
-  프로필 `rfsim`. `ho`는 rfsim 기반 CU+2×DU handover 스택
-  (`config/rfsim-ho/start_handover.sh up`)으로 위임합니다. `rfsim`/`b200` 시작 시
-  handover 스택이 남아 있으면 먼저 내리고 single gNB로 전환합니다. 일반적인 진입점입니다.
-- **`stop_system.sh`** — single gNB stack(`config/common`)과 handover stack
-  (`config/rfsim-ho`)을 모두 `docker compose down`합니다. 컨테이너 **및 공유
-  네트워크**를 제거합니다. 인자 없음.
+- **`start_system.sh [rfsim|b200|ho]`** — For `rfsim`/`b200`, starts the whole single-gNB stack: the 5G core (`mysql`,
+  `oai-amf`, `oai-smf`, `oai-upf`, `oai-ext-dn`), `nearRT-RIC`, `oai-gnb`, the
+  primary `oai-nr-ue`, and `monitor_xapp`. Waits until each container is healthy.
+  Default profile `rfsim`. `ho` delegates to the rfsim-based CU+2×DU handover
+  stack (`config/rfsim-ho/start_handover.sh up`). When starting `rfsim`/`b200`
+  with the handover stack still up, it brings that down first and switches to the
+  single gNB. This is the usual entry point.
+- **`stop_system.sh`** — Runs `docker compose down` on both the single-gNB stack
+  (`config/common`) and the handover stack (`config/rfsim-ho`). Removes the
+  containers **and the shared network**. No arguments.
 
-> **두 개의 환경.** 단일 gNB 스택(`config/common`)과 CU+2×DU handover
-> 스택(`config/rfsim-ho`, §6 참조)은 같은 네트워크(`oai-public-net`)와 컨테이너
-> 이름을 공유하므로 **동시에 하나만 실행**됩니다. 다른 쪽을 시작하기 전에 먼저 내려야
-> 합니다. 모니터링 스택은 별도 네트워크라 영향을 받지 않습니다.
+> **Two environments.** The single-gNB stack (`config/common`) and the CU+2×DU
+> handover stack (`config/rfsim-ho`, see §6) share the same network
+> (`oai-public-net`) and container names, so **only one runs at a time**. Bring
+> one down before starting the other. The monitoring stack is on a separate
+> network and is not affected.
 
-## 4. 런타임 — UE 제어
+## 4. Runtime — UE control
 
-코어 + gNB는 그대로 두고 UE만 관리합니다.
+Manages only the UEs, leaving the core + gNB running.
 
-- **`start_ue.sh [rfsim|b200]`** — 기본 `oai-nr-ue`만 (재)기동합니다. healthy 상태가
-  되고 터널(`oaitun_ue1`)에 IP가 붙을 때까지 대기하므로, 성공 시 바로 트래픽을 받을
-  준비가 된 상태입니다. `oai-gnb`가 실행 중이 아니면 경고합니다.
-- **`stop_ue.sh [rfsim|b200]`** — 기본 UE만 `docker compose stop`(`down` 아님)으로
-  중지합니다. 컨테이너는 보존되며 `restart: unless-stopped` 정책보다 우선하므로,
-  다시 시작하기 전까지 자동 재기동되지 않습니다.
-- **`restart_ue.sh [rfsim|b200]`** — `stop_ue.sh` 후 `start_ue.sh`; 깔끔한
-  분리/재접속. rfsim UE가 abort하거나 채널을 바꾼 뒤 유용합니다.
-- **`start_ues.sh [-n <count>] [rfsim|b200]`** — 같은 gNB에 대해 **추가**
-  soft-UE(`oai-nr-ue2`, `oai-nr-ue3`, …)를 기동합니다. 각 UE는 고유한 이름,
-  IP(`192.168.71.151`, …), 프로비저닝된 IMSI, thread-pool을 갖습니다. `-n`은 기본
-  2이며 `config/common/oai_db.sql`의 여분 IMSI 수만큼 제한됩니다. 기본 UE는 건드리지
-  않습니다. (이들은 compose 서비스가 아니라 순수 `docker run` 컨테이너입니다.)
-- **`stop_ues.sh`** — 모든 추가 UE(`oai-nr-ue<N>`, N ≥ 2)를 제거하고 기본 UE와 나머지
-  시스템은 유지합니다. `stop_system.sh`는 이들을 제거하지 **않으므로**, 정리/전환 시
-  이 스크립트를 먼저 실행하세요.
+- **`start_ue.sh [rfsim|b200]`** — (Re)starts only the primary `oai-nr-ue`. Waits
+  until it is healthy and the tunnel (`oaitun_ue1`) has an IP, so on success it is
+  ready for traffic right away. Warns if `oai-gnb` is not running.
+- **`stop_ue.sh [rfsim|b200]`** — Stops only the primary UE with
+  `docker compose stop` (not `down`). The container is kept, and this overrides
+  the `restart: unless-stopped` policy, so it will not restart on its own until
+  you start it again.
+- **`restart_ue.sh [rfsim|b200]`** — `stop_ue.sh` then `start_ue.sh`; a clean
+  detach/reattach. Useful after the rfsim UE aborts or after changing the channel.
+- **`start_ues.sh [-n <count>] [rfsim|b200]`** — Starts **extra** soft-UEs
+  (`oai-nr-ue2`, `oai-nr-ue3`, …) on the same gNB. Each has its own name, IP
+  (`192.168.71.151`, …), provisioned IMSI and thread pool. `-n` defaults to 2
+  and is capped by the number of spare IMSIs in `config/common/oai_db.sql`. The
+  primary UE is left alone. (These are plain `docker run` containers, not
+  compose services.)
+- **`stop_ues.sh`** — Removes all extra UEs (`oai-nr-ue<N>`, N ≥ 2) and keeps the
+  primary UE and the rest of the system. `stop_system.sh` does **not** remove
+  them, so run this first when cleaning up or switching.
 
-## 5. 런타임 — GPU MPS
+## 5. Runtime — GPU MPS
 
-CUDA Multi-Process Service. gNB PHY와 Sionna RT GUI가 GPU를 공유할 수 있게 합니다.
-(compose 파일이 `CUDA_MPS_*` 환경변수로 참조합니다.)
+CUDA Multi-Process Service. Lets the gNB PHY and the Sionna RT GUI share the GPU.
+(The compose files reference it through the `CUDA_MPS_*` environment variables.)
 
-- **`start_mps.sh`** — MPS 제어 데몬을 시작합니다.
-- **`stop_mps.sh`** — 중지합니다.
+- **`start_mps.sh`** — Starts the MPS control daemon.
+- **`stop_mps.sh`** — Stops it.
 
-## 6. 런타임 — 환경 전환
+## 6. Runtime — switching environments
 
-- **`switch_env.sh`** — 단일 gNB 환경과 handover 환경 사이를 전환합니다. *반대쪽*을
-  완전히 내리고(추가 UE 포함) 요청한 쪽을 올립니다 — "한 번에 하나만" 규칙을 자동으로
-  강제합니다.
+- **`switch_env.sh`** — Switches between the single-gNB and handover environments.
+  Fully brings down the *other* one (including extra UEs) and brings up the one
+  requested — enforcing the "one at a time" rule automatically.
 
   ```bash
-  ./scripts/switch_env.sh ho              # -> handover 스택 (CU + 2x DU)
-  ./scripts/switch_env.sh single          # -> 단일 gNB, rfsim (기본)
-  ./scripts/switch_env.sh single b200     # -> 단일 gNB, b200 프로필
-  ./scripts/switch_env.sh status          # 현재 어느 환경이 떠 있는지
-  ./scripts/switch_env.sh down            # 둘 다 내림 (idle)
+  ./scripts/switch_env.sh ho              # -> handover stack (CU + 2x DU)
+  ./scripts/switch_env.sh single          # -> single gNB, rfsim (default)
+  ./scripts/switch_env.sh single b200     # -> single gNB, b200 profile
+  ./scripts/switch_env.sh status          # which environment is currently up
+  ./scripts/switch_env.sh down            # bring both down (idle)
   ```
 
-  내부 동작: `single` → `start_handover.sh down` 후 `start_system.sh <profile>`;
-  `ho` → `stop_ues.sh` + `stop_system.sh` 후 `start_handover.sh up`.
+  Under the hood: `single` → `start_handover.sh down` then
+  `start_system.sh <profile>`; `ho` → `stop_ues.sh` + `stop_system.sh` then
+  `start_handover.sh up`.
 
-  handover 스택 자체는 **`config/rfsim-ho/start_handover.sh
-  {up|ho|status|watch|down}`**로 구동됩니다(`ho`가 F1 handover 1회 트리거). 전체
-  설명은 `config/rfsim-ho/README.md`를 참조하세요.
+  The handover stack itself is driven by **`config/rfsim-ho/start_handover.sh
+  {up|ho|status|watch|down}`** (`ho` triggers one F1 handover). See
+  `config/rfsim-ho/README.md` for the full description.
 
-## 7. 실험, 데모 & 모니터링
+## 7. Experiments, demos & monitoring
 
-- **`install-ue-wwan-status.sh`** — UE 단말(Jetson)의 모든 사용자를 위한 `ue-wwan-status` 명령을 설치합니다.
-  원본은 이 저장소에만 두고, **gNB 호스트의 checkout에서** 실행합니다. 커밋을 찍은 사본을
-  `scp`로 UE 호스트에 보내 `/usr/local/bin/ue-wwan-status`에 root 소유, 0755로 설치합니다.
+- **`install-ue-wwan-status.sh`** — Installs the `ue-wwan-status` command for all users on the UE device (Jetson).
+  The source lives only in this repository; run this **from the checkout on the gNB host**. It sends a
+  commit-stamped copy to the UE host with `scp` and installs it as `/usr/local/bin/ue-wwan-status`, owned by root, mode 0755.
 
   ```bash
-  ./scripts/install-ue-wwan-status.sh                       # 기본: ainl_jon@100.77.54.30
-  ./scripts/install-ue-wwan-status.sh --host USER@HOST      # 또는 UE_WWAN_HOST=USER@HOST
-  ssh ainl_jon@100.77.54.30 ue-wwan-status --version        # 설치된 커밋 확인
+  ./scripts/install-ue-wwan-status.sh                       # default: ainl_jon@100.77.54.30
+  ./scripts/install-ue-wwan-status.sh --host USER@HOST      # or UE_WWAN_HOST=USER@HOST
+  ssh ainl_jon@100.77.54.30 ue-wwan-status --version        # check the installed commit
   ```
 
-  ssh 연결 하나를 재사용하므로 UE 로그인 비밀번호는 한 번만 묻고, 이어서 UE 호스트의 sudo
-  비밀번호를 묻습니다. 터미널 없이 실행하면 사본만 복사해 두고 그곳에서 실행할 명령을 출력한 뒤
-  종료 코드 3으로 멈춥니다. 설치 후 `--version`이 이 checkout의 커밋과 다르면 실패로 끝납니다.
-  스테이징된 변경도 `-dirty`로 표시되니, 커밋하고 깨끗한 상태에서 다시 실행해 갱신합니다. `--prefix DIR`은
-  이 머신의 `DIR/bin`에 설치합니다. UE 호스트에는 Python 3, iproute2, ICMP 전송 권한이
-  있는 ping이 필요하며 설치 스크립트가 네트워크나 ping 권한을 변경하지는 않습니다.
+  It reuses a single ssh connection, so it asks for the UE login password once, then for the UE host's sudo
+  password. Run without a terminal, it only copies the file, prints the command to run there, and stops with
+  exit code 3. After installing, it fails if `--version` differs from this checkout's commit.
+  Staged changes are also marked `-dirty`, so commit and rerun from a clean tree to update. `--prefix DIR`
+  installs into `DIR/bin` on this machine. The UE host needs Python 3, iproute2, and a ping allowed to send
+  ICMP; the installer does not change networking or ping permissions.
 
-- **`ue_wwan_status.py`** — **UE 단말의 Linux 호스트에서** 실행하는 WWAN 진단입니다.
-  기본 인터페이스 `wwan0`의 존재, UP 플래그, global IP, IPv4/IPv6 라우트를 확인합니다.
-  셀룰러 인터페이스의 `operstate UNKNOWN`만으로 실패 처리하지 않습니다.
-  Python 3, iproute2, ping이 필요합니다. 출력은 영어입니다.
-  화면 출력은 KST 시각과 구분선이 있는 `INTERFACE AND IP ADDRESS`, `ROUTING`,
-  `IP CONNECTIVITY`, `RESULT SUMMARY` 구간으로 구성됩니다. 검사 결과와 핵심 설명만
-  간결하게 표시하며, 일반 경로 선택 실패와 인터페이스 지정 ping 성공을 구분합니다.
-  JSON 시각은 기존 UTC 형식을 유지합니다.
+- **`ue_wwan_status.py`** — WWAN diagnostics run **on the UE device's Linux host**.
+  Checks that the default interface `wwan0` exists, its UP flag, global IP, and IPv4/IPv6 routes.
+  It does not fail just because a cellular interface reports `operstate UNKNOWN`.
+  Needs Python 3, iproute2 and ping. Output is in English.
+  The screen output has a KST timestamp and ruled sections `INTERFACE AND IP ADDRESS`, `ROUTING`,
+  `IP CONNECTIVITY` and `RESULT SUMMARY`. It shows only the check results and key explanations,
+  and distinguishes a failed general route lookup from a successful interface-bound ping.
+  JSON timestamps keep the existing UTC format.
 
   ```bash
-  # 이 파일을 UE 단말에 복사한 후 단말에서 실행
-  ./ue_wwan_status.py                           # 기본 서버 192.168.72.135 확인
-  ./ue_wwan_status.py --target <reachable-IP>    # 서버 변경
+  # copy this file to the UE device, then run it there
+  ./ue_wwan_status.py                           # check the default server 192.168.72.135
+  ./ue_wwan_status.py --target <reachable-IP>    # change the server
   ./ue_wwan_status.py --watch
   ./ue_wwan_status.py --json
   ./ue_wwan_status.py --interface wwan1
-  ./ue_wwan_status.py --local-only              # 통신 검사 생략
+  ./ue_wwan_status.py --local-only              # skip the connectivity check
   ```
 
-  `<reachable-IP>`에는 UE에서 도달 가능해야 하는 서버의 실제 숫자 IP를 넣습니다.
-  기본 서버는 `192.168.72.135`이며 `--target`으로 변경할 수 있습니다.
-  일반 트래픽의 경로가 WWAN을 선택하는지 확인하고,
-  `ping -I wwan0`으로 해당 인터페이스를 통한 통신도 별도 확인합니다.
-  `--local-only`는 로컬 설정만 검사하며 통신 성공을 의미하지 않습니다.
-  기본 경로가 없어도 목적지별 경로로 통신할 수 있으므로 기본 경로 유무는 참고 정보입니다.
-  정책 라우팅의 경로 판정은 현재 실행 사용자의 일반 트래픽 기준이며 앱별 mark 등은
-  모사하지 않습니다. ICMP 차단 때문에 ping이 실패할 수도 있습니다.
-  설정은 변경하지 않습니다. ping 권한 오류가 나면 단말의 ping 권한 설정을 확인하세요.
-  종료 코드는 0(검사 통과), 1(검사 실패), 2(도구/실행 오류)입니다.
-  `--watch`는 Ctrl+C까지 계속 실행하며 `--json --watch`는 줄별 JSON을 출력합니다.
+  For `<reachable-IP>`, use the real numeric IP of a server the UE should be able to reach.
+  The default server is `192.168.72.135`; change it with `--target`.
+  It checks whether the route for general traffic picks the WWAN interface,
+  and separately checks connectivity through that interface with `ping -I wwan0`.
+  `--local-only` checks only the local configuration and does not mean connectivity works.
+  A missing default route is informational, since per-destination routes can still carry traffic.
+  Route checks under policy routing reflect general traffic from the current user and do not
+  emulate per-app marks and the like. Ping can also fail because ICMP is blocked.
+  It changes no settings. If you get a ping permission error, check the device's ping permissions.
+  Exit codes: 0 (checks passed), 1 (checks failed), 2 (tool/runtime error).
+  `--watch` runs until Ctrl+C, and `--json --watch` prints one JSON object per line.
 
 
-- **`install-ue-status.sh`** — 모든 사용자를 위한 `ue-status` 명령을 설치합니다.
-  저장소 접근 권한에 의존하지 않도록 `ue_status.py`를 `/usr/local/bin/ue-status`에
-  복사하고 실행 권한(0755)을 설정합니다. 기본 경로 설치 시 root 소유로 설치됩니다.
+- **`install-ue-status.sh`** — Installs the `ue-status` command for all users.
+  So that it does not depend on repository access, it copies `ue_status.py` to
+  `/usr/local/bin/ue-status` and makes it executable (0755). With the default path it is owned by root.
 
   ```bash
   sudo ./scripts/install-ue-status.sh
   ue-status
   ```
 
-  원본 스크립트를 수정한 뒤에는 설치 스크립트를 다시 실행해 갱신합니다.
-  `--prefix DIR`로 설치 위치를 `DIR/bin/ue-status`로 바꿀 수 있습니다.
-  각 사용자의 PATH에 설치 디렉터리가 있어야 하며, 실행에는 Python 3, Docker CLI와
-  Docker 데몬 접근 권한이 필요합니다. 설치 스크립트는 Docker 권한이나 그룹을 변경하지 않습니다.
+  After editing the source script, rerun the installer to update it.
+  `--prefix DIR` changes the install location to `DIR/bin/ue-status`.
+  The install directory must be on each user's PATH, and running it needs Python 3, the Docker CLI and
+  access to the Docker daemon. The installer does not change Docker permissions or groups.
 
-- **`ue_status.py`** — gNB 로그에서 최근 관측된 UE별 최신 MAC 통계를 표로 출력합니다.
-  Python 3 표준 라이브러리와 Docker CLI만 필요하며, 출력과 도움말은 영어입니다.
-  RNTI, CU-UE-ID, IMSI, UE-IP, 동기 상태, RSRP, UL SNR, DL/UL MCS·BLER, 누적 TX/RX를 표시합니다.
-  기본 컨테이너는 `oai-gnb`, 조회 구간은 최근 10초입니다. 로그 기반이므로 접속 해제된
-  UE가 최대 조회 구간 동안 남을 수 있으며, 통계가 없다고 미접속을 확정하지 않습니다.
-  IMSI와 UE-IP는 AMF의 최근 UE 표와 SMF의 보존된 세션 로그를 CU-ID → RAN UE NGAP ID
-  → IMSI로 연결해 조회합니다. UE-IP는 Docker 컨테이너 IP가 아닌 UE의 PDU 세션 할당
-  주소입니다. AMF에 연결된 gNB가 하나인 구성을 지원하며, 여러 gNB이거나 식별자가
-  중복되거나 기록이 없으면 IP를 추측하지 않고 `-`로 표시합니다.
-  코어 조회 실패 시에도 무선 통계를 출력하고 영어 경고를 표시합니다.
-  기본적으로 `oai-ext-dn`에서 매 조회마다 UE IP당 ICMP ping 3회를 보냅니다(응답 대기 1초).
-  응답별 RTT, 패킷 손실률, RTT 통계를 포함한 ping 원본 출력을 표시합니다.
-  `IP CONNECTIVITY`에 `REACHABLE`, `NO-REPLY`, `ERROR`, `SKIPPED`로 결과를 표시합니다.
-  무응답은 ICMP 차단 때문일 수도 있으므로 연결 종료로 단정하지 않습니다.
-  `--no-ping`으로 생략하거나 `--ping-container NAME`으로 출발 컨테이너를 지정합니다.
-  컨테이너에 ping이 필요하며, UE가 많으면 순차 검사 때문에 갱신이 늦어질 수 있습니다.
-  JSON에는 `ping_container`와 UE별 `connectivity` 결과 목록이 추가됩니다.
-  SMF 로그는 과거 할당 기록이므로 실시간 세션 상태를 확정하지 않으며, 할당 기록의
-  시각도 함께 표시합니다. 로그 회전으로 기록이 사라지면 IP를 조회할 수 없습니다.
-  watch 모드도 매번 보존된 SMF 로그를 읽으므로 로그가 크면 갱신이 느려질 수 있습니다.
-  AMF 표 갱신 지연으로 재접속 직후에는 매칭 정보가 늦게 반영될 수 있습니다.
+- **`ue_status.py`** — Prints a table of the latest MAC statistics for each UE recently seen in the gNB log.
+  Needs only the Python 3 standard library and the Docker CLI; output and help are in English.
+  Shows RNTI, CU-UE-ID, IMSI, UE-IP, sync state, RSRP, UL SNR, DL/UL MCS·BLER, and cumulative TX/RX.
+  The default container is `oai-gnb` and the lookup window is the last 10 seconds. Because it is log-based, a
+  detached UE can linger for up to one window, and missing statistics do not prove a UE is disconnected.
+  IMSI and UE-IP are looked up by linking CU-ID → RAN UE NGAP ID → IMSI across the AMF's recent UE table and the
+  SMF's retained session logs. UE-IP is the address assigned to the UE's PDU session, not the Docker container
+  IP. Setups with a single gNB connected to the AMF are supported; with several gNBs, duplicate identifiers or
+  no record, it does not guess the IP and shows `-`.
+  If the core lookup fails, it still prints the radio statistics and shows a warning in English.
+  By default it sends 3 ICMP pings per UE IP from `oai-ext-dn` on every lookup (1 s reply timeout).
+  It shows the raw ping output, including per-reply RTT, packet loss and RTT statistics.
+  `IP CONNECTIVITY` shows the result as `REACHABLE`, `NO-REPLY`, `ERROR` or `SKIPPED`.
+  No reply can be caused by blocked ICMP, so it does not conclude the connection is gone.
+  Skip it with `--no-ping`, or choose the source container with `--ping-container NAME`.
+  The container needs ping, and with many UEs the sequential checks can slow down refreshes.
+  JSON gains `ping_container` and a per-UE list of `connectivity` results.
+  SMF logs are a record of past allocations, so they do not confirm live session state; the time of the
+  allocation record is shown too. If log rotation removes the record, the IP cannot be looked up.
+  Watch mode also reads the retained SMF logs each time, so refreshes can be slow when the logs are large.
+  Because the AMF table updates with a delay, matching info can show up late right after a reattach.
 
   ```bash
-  ./scripts/ue_status.py                         # 한 번 조회
-  ./scripts/ue_status.py --watch                 # 2초 간격 갱신, Ctrl+C 종료
-  ./scripts/ue_status.py --watch --interval 5    # 5초 간격 갱신
-  ./scripts/ue_status.py -c oai-gnb --window 20  # 컨테이너 및 조회 구간 지정
-  ./scripts/ue_status.py --json                  # 자동화용 JSON
-  ./scripts/ue_status.py --amf oai-amf --smf oai-smf  # 코어 컨테이너 지정
+  ./scripts/ue_status.py                         # one lookup
+  ./scripts/ue_status.py --watch                 # refresh every 2 s, Ctrl+C to quit
+  ./scripts/ue_status.py --watch --interval 5    # refresh every 5 s
+  ./scripts/ue_status.py -c oai-gnb --window 20  # set container and lookup window
+  ./scripts/ue_status.py --json                  # JSON for automation
+  ./scripts/ue_status.py --amf oai-amf --smf oai-smf  # set core containers
   ```
 
-  `--json --watch`는 한 줄에 하나의 JSON snapshot을 출력합니다. `last_seen`은 Docker
-  로그의 UTC 시각이고, TX/RX는 gNB 기준 누적 바이트입니다. `--json`에는 로그에서
-  확인되는 PH, PCMAX, DL/UL 오류 누적값과 HARQ rounds도 포함됩니다.
-  IP 관련 JSON 필드는 `imsi`, `ue_ip`, `ip_source`, `ip_last_seen`이며 미확인 값은 `null`입니다.
+  `--json --watch` prints one JSON snapshot per line. `last_seen` is the UTC time from the Docker
+  log, and TX/RX are cumulative bytes from the gNB's point of view. `--json` also includes PH, PCMAX,
+  cumulative DL/UL error counts and HARQ rounds when they appear in the log.
+  The IP-related JSON fields are `imsi`, `ue_ip`, `ip_source` and `ip_last_seen`; unknown values are `null`.
 
-- **`channel_sweep.sh`** — rfsim `chanmod` 파라미터(예: path loss)를 스윕합니다. 각
-  값마다 rfsimulator 텔넷으로 `channelmod modify …`를 보내고(DL은 UE, UL은 gNB
-  경유), 짧은 iperf3를 돌린 뒤 처리량 표를 출력합니다.
-- **`start_channel_emulation_demo.sh`** — 엔드투엔드 채널 에뮬레이션 데모: CUDA 채널
-  에뮬레이터(ZMQ CIR 소스)로 네트워크를 띄우고 UE 접속을 기다린 뒤 iperf3를 돌리고,
-  MPS와 함께 Sionna RT GUI를 실행합니다. 빌드된 이미지 + Sionna RT GUI 설치가
-  필요합니다.
-- **`watch_MCS.sh`** — OAI 로그를 따라가며 채널 변화에 실제로 반응하는 링크 품질
-  지표를 보여줍니다(NR_MAC 통계에서 UE별 DL/UL MCS, BLER, SNR; UE 쪽 HARQ / code
-  rate). `channel_sweep.sh`와 함께 쓰기 좋습니다.
+- **`channel_sweep.sh`** — Sweeps an rfsim `chanmod` parameter (e.g. path loss). For
+  each value it sends `channelmod modify …` over the rfsimulator telnet (via the UE
+  for DL, the gNB for UL), runs a short iperf3, and prints a throughput table.
+- **`start_channel_emulation_demo.sh`** — End-to-end channel emulation demo: brings
+  up the network with the CUDA channel emulator (ZMQ CIR source), waits for the UE
+  to attach, runs iperf3, and launches the Sionna RT GUI with MPS. Needs the built
+  images + the Sionna RT GUI installed.
+- **`watch_MCS.sh`** — Follows the OAI logs and shows the link-quality metrics that
+  actually respond to channel changes (per-UE DL/UL MCS, BLER, SNR from the NR_MAC
+  stats; HARQ / code rate on the UE side). Pairs well with `channel_sweep.sh`.
 
-## 8. 개발자 / 버전 추적 헬퍼
+## 8. Developer / version-tracking helpers
 
-이 킷이 업스트림 OAI 대비 무엇을 바꾸는지 확인하고 변경 매니페스트를 유지합니다.
-주로 CI와 git 훅에서 사용됩니다.
+Shows what this kit changes relative to upstream OAI and maintains the change
+manifest. Used mostly by CI and git hooks.
 
-- **`get-oai-commit-versions.sh`** / **`get-oai-cn5g-commit-versions.sh`** — RAN /
-  CN5G 소스의 고정된 업스트림 커밋/버전을 출력합니다.
-- **`get-oai-changed-files.sh`** / **`get-oai-cn5g-changed-files.sh`** — 이 킷이
-  업스트림 base 대비 수정한 파일들을 나열합니다.
-- **`get-config-changes.sh`** — 생성된 config의 변경 사항을 보여줍니다.
-- **`update-ainl.sh`** — `AINL.md`의 자동 관리 "Changed files" 영역을
-  git 기준으로(NVlabs base 커밋 `AINL_BASE` 대비) 재생성합니다. pre-commit 훅에서
-  실행됩니다.
+- **`get-oai-commit-versions.sh`** / **`get-oai-cn5g-commit-versions.sh`** — Print
+  the pinned upstream commit/version of the RAN / CN5G sources.
+- **`get-oai-changed-files.sh`** / **`get-oai-cn5g-changed-files.sh`** — List the
+  files this kit modifies relative to the upstream base.
+- **`get-config-changes.sh`** — Shows the changes in the generated configs.
+- **`update-ainl.sh`** — Regenerates the auto-maintained "Changed files" region of
+  `AINL.md` from git (relative to the NVlabs base commit `AINL_BASE`). Run by the
+  pre-commit hook.
+- **`check-readme-sync.sh`** — Checks that this folder's `README.md` (English) and
+  `README.ko.md` (Korean) have the same structure: heading counts per level, the
+  order of script entries, and the commands in code blocks (comments excluded). It
+  does not judge translation quality. When either README is staged, the
+  pre-commit hook runs it on the staged content and blocks the commit if they
+  differ; it checks the repo-root `AINL.md` / `AINL.ko.md` pair the same way.
+  With no arguments it compares the two files in the working tree.
 
 ---
 
-## 전형적인 사용 흐름
+## Typical workflows
 
-단일 gNB에 추가 UE 2개, 그리고 UE 재시작:
+Single gNB with 2 extra UEs, then a UE restart:
 
 ```bash
-./scripts/start_system.sh rfsim       # 코어 + gNB + 기본 UE
-./scripts/start_system.sh ho          # 코어 + CU + 2xDU + 기본 UE
-./scripts/start_ues.sh -n 2           # oai-nr-ue2, oai-nr-ue3 추가
-./scripts/restart_ue.sh               # 기본 UE 재기동
-./scripts/stop_ues.sh                 # 추가 UE 제거
-./scripts/stop_system.sh              # 전체 종료
+./scripts/start_system.sh rfsim       # core + gNB + primary UE
+./scripts/start_system.sh ho          # core + CU + 2xDU + primary UE
+./scripts/start_ues.sh -n 2           # add oai-nr-ue2, oai-nr-ue3
+./scripts/restart_ue.sh               # restart the primary UE
+./scripts/stop_ues.sh                 # remove the extra UEs
+./scripts/stop_system.sh              # shut everything down
 ```
 
-handover로 전환하고, handover 1회 실행 후, 다시 전환:
+Switch to handover, run one handover, and switch back:
 
 ```bash
 ./scripts/switch_env.sh ho
-cd config/rfsim-ho && ./start_handover.sh status   # UE가 DU0에
+cd config/rfsim-ho && ./start_handover.sh status   # UE on DU0
 ./start_handover.sh ho                              # UE -> DU1
-cd ../.. && ./scripts/switch_env.sh single          # 다시 단일 gNB로
+cd ../.. && ./scripts/switch_env.sh single          # back to single gNB
 ```

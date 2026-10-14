@@ -320,7 +320,7 @@ FlexRIC에는 컨테이너 쓰기 레이어에서 **끝없이** 커지며 호스
 
 ## 저장소 / 브랜치 구성
 
-- `origin`   → `sunghyunc7/ainl-sionna-rk` (우리 포크, 기본 push/pull 대상)
+- `origin`   → `ainl-kaist/ainl-sionna-rk` (우리 포크, 기본 push/pull 대상)
 - `upstream` → `NVlabs/sionna-rk` (업데이트 pull 전용)
 - `main`     → `upstream/main`을 그대로 따름(동기화를 위해 깨끗하게 유지)
 - `ainl-dev` → 우리 작업 브랜치(연구실 작업은 모두 여기에)

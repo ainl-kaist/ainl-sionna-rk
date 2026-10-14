@@ -333,7 +333,7 @@ above is auto-generated. For the raw history: `git log --oneline fa405b8..ainl-d
 
 ## Repo / branch layout
 
-- `origin`   → `sunghyunc7/ainl-sionna-rk` (our fork; default push/pull target)
+- `origin`   → `ainl-kaist/ainl-sionna-rk` (our fork; default push/pull target)
 - `upstream` → `NVlabs/sionna-rk` (pull updates only)
 - `main`     → mirrors `upstream/main` (kept clean for syncing)
 - `ainl-dev` → our working branch (all lab work lives here)

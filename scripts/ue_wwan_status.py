@@ -14,6 +14,14 @@ import time
 # Replaced with the git commit by scripts/install-ue-wwan-status.sh.
 __version__ = 'dev'
 
+# Default target: oai-ext-dn, the data-network server on the gNB host
+# (fixed in config/*/docker-compose.yaml).
+EXT_DN_IP = '192.168.72.135'
+
+
+def target_label(target):
+    return f'{target} (oai-ext-dn)' if target == EXT_DN_IP else target
+
 
 def run(command):
     result = subprocess.run(command, capture_output=True, text=True, timeout=15)
@@ -108,7 +116,7 @@ def display(data):
     print('=' * 78)
     print(f"Checked at : {checked_at.isoformat(sep=' ')} KST")
     print(f"Interface  : {data['interface']}")
-    print(f"Target     : {data['target'] or 'none (local configuration only)'}")
+    print(f"Target     : {target_label(data['target']) or 'none (local configuration only)'}")
 
     section('INTERFACE AND IP ADDRESS')
     show('interface', 'Interface')
@@ -125,7 +133,7 @@ def display(data):
 
     section('IP CONNECTIVITY')
     if data['target'] is not None:
-        print(f"Probe: {data['interface']} -> {data['target']} (3 ICMP requests, 2s timeout, 8s deadline)")
+        print(f"Probe: {data['interface']} -> {target_label(data['target'])} (3 ICMP requests, 2s timeout, 8s deadline)")
         show('bound_ping', 'Ping')
         # Failed ping details already include the ICMP interpretation note.
         if checks.get('bound_ping', {}).get('status') != 'FAIL':
@@ -162,8 +170,8 @@ def main():
     parser.add_argument('--version', action='version', version=f'ue-wwan-status {__version__}')
     parser.add_argument('-i', '--interface', default='wwan0', help='UE interface (default: wwan0)')
     destination = parser.add_mutually_exclusive_group()
-    destination.add_argument('--target', type=target_ip, default='192.168.72.135',
-                             help='Destination IP for route selection and interface-bound ping (default: 192.168.72.135)')
+    destination.add_argument('--target', type=target_ip, default=EXT_DN_IP,
+                             help=f'Destination IP for route selection and interface-bound ping (default: {EXT_DN_IP}, oai-ext-dn)')
     destination.add_argument('--local-only', dest='target', action='store_const', const=None,
                              help='Check local interface configuration without route probing or ping')
     parser.add_argument('-w', '--watch', action='store_true', help='Refresh until Ctrl+C')

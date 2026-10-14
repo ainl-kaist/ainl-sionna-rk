@@ -16,6 +16,8 @@ __version__ = 'dev'
 ANSI = re.compile(r'\x1b\[[0-9;]*m')
 HEADER = re.compile(r'UE RNTI ([0-9a-fA-F]+) CU-UE-ID (\d+) (\S+)')
 DETAIL = re.compile(r'UE ([0-9a-fA-F]+): (.*)')
+# Fixed address of oai-ext-dn on oai-public-net (config/*/docker-compose.yaml).
+EXT_DN_IP = '192.168.72.135'
 
 
 def parse_logs(log):
@@ -262,7 +264,10 @@ def display(data):
     print('       See IP CONNECTIVITY below for the ICMP ping results.')
     print('       - means no allocation record was found or matched to this UE.')
     section('IP CONNECTIVITY')
-    print(f"Probe source: {data.get('ping_container', 'unavailable')} -> UE IP (3 ICMP requests, 1s reply timeout)")
+    source = data.get('ping_container', 'unavailable')
+    if source == 'oai-ext-dn':
+        source = f'oai-ext-dn ({EXT_DN_IP})'
+    print(f"Probe source: {source} -> UE IP (3 ICMP requests, 1s reply timeout)")
     print('A reply confirms ICMP reachability only. No reply may also mean ICMP filtering;')
     print('it does not by itself prove that the UE is disconnected.')
     for ue in data['ues']:
@@ -305,7 +310,7 @@ def main():
     parser.add_argument('--json', action='store_true', help='Output JSON; watch mode emits one snapshot per line')
     parser.add_argument('--amf', default='oai-amf', help='AMF container (default: oai-amf)')
     parser.add_argument('--smf', default='oai-smf', help='SMF container (default: oai-smf)')
-    parser.add_argument('--ping-container', default='oai-ext-dn', help='ICMP probe source container (default: oai-ext-dn)')
+    parser.add_argument('--ping-container', default='oai-ext-dn', help=f'ICMP probe source container (default: oai-ext-dn ({EXT_DN_IP}))')
     parser.add_argument('--no-ping', action='store_true', help='Skip active ICMP probes; show log observations only')
     args = parser.parse_args()
     try:
